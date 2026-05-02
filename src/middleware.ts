@@ -1,24 +1,68 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { ADMIN_COOKIE_NAME, verifySessionToken } from "@/lib/admin-auth";
 
 /**
- * Protege todas las rutas /admin/* salvo /admin/login. Si la cookie de
- * sesion es invalida o no existe, redirige a /admin/login con `next` query
- * para volver al destino original despues del login.
- *
- * NO ejecuta sobre /api/admin/login (ese setea la cookie). Si fuera, dejas
- * al usuario sin forma de autenticarse.
+ * Protege /admin/* con cookie firmada HMAC. Middleware corre en Edge Runtime
+ * (sin node:crypto), asi que usamos Web Crypto SubtleCrypto. La auth para
+ * API routes (que generan la cookie) usa node:crypto en lib/admin-auth.ts.
  */
-export function middleware(req: NextRequest) {
+
+const COOKIE_NAME = "m90s_admin";
+
+const encoder = new TextEncoder();
+
+async function importKey(secret: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["verify"],
+  );
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  if (hex.length % 2 !== 0) return new Uint8Array(0);
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+
+async function verifyToken(
+  token: string | undefined,
+  secret: string,
+): Promise<boolean> {
+  if (!token || !secret) return false;
+  const [expStr, sig] = token.split(".");
+  if (!expStr || !sig) return false;
+  const exp = Number(expStr);
+  if (!Number.isFinite(exp) || exp < Date.now()) return false;
+  try {
+    const key = await importKey(secret);
+    const sigBytes = hexToBytes(sig);
+    if (sigBytes.length === 0) return false;
+    return await crypto.subtle.verify(
+      "HMAC",
+      key,
+      sigBytes as BufferSource,
+      encoder.encode(expStr),
+    );
+  } catch {
+    return false;
+  }
+}
+
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Skip login page itself
+  // /admin/login se ve sin auth
   if (pathname === "/admin/login") return NextResponse.next();
 
-  const token = req.cookies.get(ADMIN_COOKIE_NAME)?.value;
-  if (verifySessionToken(token)) {
-    return NextResponse.next();
-  }
+  const secret = process.env.ADMIN_SESSION_SECRET ?? "";
+  const token = req.cookies.get(COOKIE_NAME)?.value;
+  const ok = await verifyToken(token, secret);
+  if (ok) return NextResponse.next();
 
   const url = req.nextUrl.clone();
   url.pathname = "/admin/login";

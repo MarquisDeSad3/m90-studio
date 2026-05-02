@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useInView } from "framer-motion";
+import { AnimatePresence, motion, useInView } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
 /**
@@ -24,24 +24,6 @@ const WORDS = [
 
 const ROTATION_MS = 500;
 const N = WORDS.length;
-
-/** Offset firmado mas corto entre activeIdx y itemIdx (loop circular). */
-function shortestSignedOffset(activeIdx: number, itemIdx: number): number {
-  const raw = itemIdx - activeIdx;
-  const half = N / 2;
-  if (raw > half) return raw - N;
-  if (raw < -half) return raw + N;
-  return raw;
-}
-
-/** Opacidad por distancia al centro */
-function opacityForDistance(d: number): number {
-  if (d === 0) return 1;
-  if (d === 1) return 0.32;
-  if (d === 2) return 0.16;
-  if (d === 3) return 0.06;
-  return 0;
-}
 
 export function LayoutsTicker() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -109,48 +91,28 @@ export function LayoutsTicker() {
               Hacemos
             </motion.span>
 
-            {/* Vertical word column — width fija basada en palabra mas larga */}
+            {/* Una sola palabra activa que se reemplaza con AnimatePresence.
+                Evita la stack absoluta de motion.spans (frágil en mobile cuando
+                las inline-styles no se aplicaban bien). */}
             <div
-              className="relative"
+              className="relative flex items-center justify-center overflow-hidden"
               style={{
-                height: "5em",
+                height: "1.2em",
                 width: "5.8em",
-                maskImage:
-                  "linear-gradient(to bottom, transparent 0%, black 40%, black 60%, transparent 100%)",
-                WebkitMaskImage:
-                  "linear-gradient(to bottom, transparent 0%, black 40%, black 60%, transparent 100%)",
               }}
             >
-              {WORDS.map((word, i) => {
-                const offset = shortestSignedOffset(activeIdx, i);
-                const distance = Math.abs(offset);
-                const opacity = opacityForDistance(distance);
-                return (
-                  <motion.span
-                    key={word}
-                    initial={false}
-                    animate={{
-                      y: `calc(${offset} * 1em)`,
-                      opacity,
-                    }}
-                    transition={{
-                      duration: 0.35,
-                      ease: [0.22, 1, 0.36, 1],
-                    }}
-                    style={{
-                      position: "absolute",
-                      top: "50%",
-                      left: 0,
-                      marginTop: "-0.5em",
-                      height: "1em",
-                      lineHeight: 1,
-                    }}
-                    className="block whitespace-nowrap font-display tracking-tight text-[color:var(--color-cream-warm)]"
-                  >
-                    {word}
-                  </motion.span>
-                );
-              })}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={WORDS[activeIdx]}
+                  initial={{ opacity: 0, y: "60%" }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: "-60%" }}
+                  transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 flex items-center justify-center whitespace-nowrap font-display tracking-tight text-[color:var(--color-cream-warm)]"
+                >
+                  {WORDS[activeIdx]}
+                </motion.span>
+              </AnimatePresence>
             </div>
           </div>
 

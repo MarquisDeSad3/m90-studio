@@ -1,13 +1,10 @@
 "use client";
 
-import { motion, useScroll, useSpring, useTransform } from "framer-motion";
-import { useRef } from "react";
-
 /**
- * DiagonalGallery — 4 filas con parallax invertido + grid rotado -12deg.
- * Inspired by Klaudiya. Adaptado al palette M90 (navy + cream-warm).
- * Las fotos son placeholder de móviles/manos hasta que tengamos fotos
- * reales de clientes con sus fundas.
+ * DiagonalGallery — 4 filas estaticas con grid rotado -10deg.
+ * Sin framer-motion, sin useScroll/useSpring, sin RAF. Cero CPU/GPU.
+ * El offset visual de cada fila usa solo CSS (translateX inicial) para
+ * dar sensacion de mosaico diagonal.
  */
 
 const PHOTOS = [
@@ -21,46 +18,22 @@ const PHOTOS = [
   "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?auto=format&fit=crop&w=560&h=685&q=80",
 ];
 
-const IMAGES = Array.from({ length: 16 }, (_, i) => PHOTOS[i % PHOTOS.length]);
+/* 4 filas de 4 imagenes — distintas por fila para variedad visual */
+const ROWS = [
+  { images: PHOTOS.slice(0, 4), offsetX: "-30%" },
+  { images: PHOTOS.slice(4, 8), offsetX: "-15%" },
+  { images: PHOTOS.slice(0, 4).reverse(), offsetX: "-35%" },
+  { images: PHOTOS.slice(4, 8).reverse(), offsetX: "-20%" },
+];
 
 export function DiagonalGallery() {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "end start"],
-  });
-
-  // useSpring sobre scrollYProgress: agrega inercia, hace que la animacion se
-  // vea buttery aunque el scroll del usuario sea quebradizo en mobile.
-  // stiffness/damping ajustados para sensacion premium pero responsiva.
-  const smooth = useSpring(scrollYProgress, {
-    stiffness: 80,
-    damping: 22,
-    mass: 0.6,
-    restDelta: 0.0005,
-  });
-
-  // Parallax dinamico — recorrido amplio
-  const row1X = useTransform(smooth, [0, 1], ["-5%", "-60%"]);
-  const row2X = useTransform(smooth, [0, 1], ["-60%", "-5%"]);
-  const row3X = useTransform(smooth, [0, 1], ["-10%", "-65%"]);
-  const row4X = useTransform(smooth, [0, 1], ["-65%", "-10%"]);
-
-  const rows = [
-    { images: IMAGES.slice(0, 4), x: row1X },
-    { images: IMAGES.slice(4, 8), x: row2X },
-    { images: IMAGES.slice(8, 12), x: row3X },
-    { images: IMAGES.slice(12, 16), x: row4X },
-  ];
-
   return (
     <section
       id="galeria"
-      ref={ref}
       className="relative isolate overflow-hidden bg-[color:var(--color-navy)] text-[color:var(--color-cream-soft)]"
       style={{ height: "min(120vh, 1100px)" }}
     >
-      {/* Top strip — mobile compact, desktop spread */}
+      {/* Top strip */}
       <div className="relative z-20 flex items-center justify-between gap-3 border-y border-[color:var(--color-cream-soft)]/15 px-4 py-3 font-mono text-[9px] uppercase tracking-[0.25em] sm:px-10 sm:text-[10px] sm:tracking-[0.3em]">
         <span className="text-[color:var(--color-cream-warm)]">· Galería</span>
         <span className="hidden md:inline">Fundas en uso · clientes M90</span>
@@ -72,26 +45,20 @@ export function DiagonalGallery() {
         </a>
       </div>
 
-      {/* Rotated diagonal grid. La rotacion va en un wrapper aparte y forzamos
-          GPU layer con transform3d + backface-visibility para que el browser
-          componga las filas independientes sin reflows en cada scroll. */}
+      {/* Rotated static grid */}
       <div
         className="absolute inset-0 flex flex-col justify-center gap-1 md:gap-2"
         style={{
-          transform: "rotate(-10deg) scale(1.3) translateZ(0)",
+          transform: "rotate(-10deg) scale(1.3)",
           transformOrigin: "center center",
-          willChange: "transform",
-          backfaceVisibility: "hidden",
         }}
       >
-        {rows.map((row, i) => (
-          <motion.div
+        {ROWS.map((row, i) => (
+          <div
             key={i}
             style={{
-              x: row.x,
+              transform: `translateX(${row.offsetX})`,
               width: "200%",
-              willChange: "transform",
-              transform: "translateZ(0)",
             }}
             className="flex flex-shrink-0 items-center gap-1 md:gap-2"
           >
@@ -114,7 +81,7 @@ export function DiagonalGallery() {
                 <div className="absolute inset-0 bg-[color:var(--color-cream-warm)]/0 transition-colors duration-300 group-hover:bg-[color:var(--color-cream-warm)]/25" />
               </a>
             ))}
-          </motion.div>
+          </div>
         ))}
       </div>
 

@@ -51,8 +51,9 @@ export function StepConfirm() {
     waUrl: string;
   } | null>(null);
 
-  // Componer preview a 150 DPI (suficiente para mostrar). El print-ready
-  // 300 DPI lo generamos al submitear, NO al montar — mas barato.
+  // Componer UNA sola vez a 200 DPI (compromiso: printable + rapido en
+  // mobile cubano). Reusamos este blob para preview Y print-ready.
+  // Antes habia dos composes (150 + 300), el 300 colgaba mobiles viejos.
   useEffect(() => {
     if (!layout) return;
     setComposing(true);
@@ -64,7 +65,7 @@ export function StepConfirm() {
         widthMm: model?.widthMm ?? 75,
         heightMm: model?.heightMm ?? 150,
       },
-      { dpi: 150, quality: 0.85 },
+      { dpi: 200, quality: 0.9 },
     )
       .then(setComposed)
       .catch(() => {
@@ -163,18 +164,8 @@ export function StepConfirm() {
     setComposeError(null);
 
     try {
-      // Generar print-ready a 300 DPI con las dimensiones reales en mm.
-      // Esto se sube como `printReady` y se imprime tal cual.
-      const printReady = await composeFinalCover(
-        layout.slots,
-        state.photos,
-        {
-          widthMm: model?.widthMm ?? 75,
-          heightMm: model?.heightMm ?? 150,
-        },
-        { dpi: 300, quality: 0.92 },
-      );
-
+      // Reusamos el blob ya generado en useEffect (200 DPI). NO recomponer
+      // aca — el doble compose colgaba mobiles viejos.
       // Construimos el FormData con originales + preview + datos del pedido
       const fd = new FormData();
       fd.append(
@@ -225,13 +216,24 @@ export function StepConfirm() {
           );
         }
       }
+      // El mismo blob (200 DPI) sirve como preview Y print-ready
       fd.append("preview", composed.blob, "preview.jpg");
-      fd.append("printReady", printReady.blob, "print-ready-300dpi.jpg");
+      fd.append("printReady", composed.blob, "print-ready.jpg");
 
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        body: fd,
-      });
+      // Timeout 90s — si el upload se traba en 3G cubano, falla en lugar
+      // de quedarse pegado infinitamente con el spinner
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 90_000);
+      let res: Response;
+      try {
+        res = await fetch("/api/orders", {
+          method: "POST",
+          body: fd,
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
 
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
@@ -249,11 +251,13 @@ export function StepConfirm() {
       setSubmitted({ code: result.code, waUrl: url });
     } catch (err) {
       console.error("[step-confirm] order submit failed:", err);
-      setComposeError(
-        err instanceof Error
-          ? `No pude enviar el pedido: ${err.message}`
-          : "No pude enviar el pedido. Probá de nuevo.",
-      );
+      const msg =
+        err instanceof Error && err.name === "AbortError"
+          ? "El envío tardó demasiado. Probá de nuevo con mejor conexión."
+          : err instanceof Error
+            ? `No pude enviar el pedido: ${err.message}`
+            : "No pude enviar el pedido. Probá de nuevo.";
+      setComposeError(msg);
     } finally {
       setSharing(false);
     }

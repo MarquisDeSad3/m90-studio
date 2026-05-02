@@ -30,12 +30,12 @@ const orderInputSchema = z.object({
   phoneModelName: z.string().min(1).max(200),
   layoutId: z.string().min(1).max(100),
   layoutName: z.string().min(1).max(200),
-  /** Dimensiones fisicas del case en mm (snapshot del catalogo al momento
-      del pedido, asi el print-ready es exacto sin importar si cambian
-      despues). */
-  widthMm: z.number().int().positive().max(500).optional(),
-  heightMm: z.number().int().positive().max(500).optional(),
-  cornerRadiusMm: z.number().int().min(0).max(50).optional(),
+  /** Dimensiones fisicas del case en mm (snapshot del catalogo). El catalogo
+      tiene decimales (75.7mm, 150.9mm), asi que aceptamos number — luego
+      redondeamos al insertar a la columna integer. */
+  widthMm: z.number().positive().max(500).optional(),
+  heightMm: z.number().positive().max(500).optional(),
+  cornerRadiusMm: z.number().min(0).max(50).optional(),
   cameraBox: z
     .object({
       x: z.number(),
@@ -184,9 +184,14 @@ export async function POST(req: Request) {
         phoneModelName: parsed.phoneModelName,
         layoutId: parsed.layoutId,
         layoutName: parsed.layoutName,
-        widthMm: parsed.widthMm ?? null,
-        heightMm: parsed.heightMm ?? null,
-        cornerRadiusMm: parsed.cornerRadiusMm ?? null,
+        widthMm:
+          parsed.widthMm != null ? Math.round(parsed.widthMm) : null,
+        heightMm:
+          parsed.heightMm != null ? Math.round(parsed.heightMm) : null,
+        cornerRadiusMm:
+          parsed.cornerRadiusMm != null
+            ? Math.round(parsed.cornerRadiusMm)
+            : null,
         cameraBox: parsed.cameraBox ?? null,
         status: "submitted",
         previewUrl,

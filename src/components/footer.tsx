@@ -3,7 +3,6 @@
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { Logo } from "./logo";
-import { ShaderBackground } from "./ui/shader-background";
 import { whatsappUrl } from "@/lib/utils";
 
 /**
@@ -63,12 +62,23 @@ export function Footer() {
       ref={ref}
       className="relative overflow-hidden bg-[color:var(--color-navy-900)] text-[color:var(--color-cream-soft)]"
     >
-      {/* WebGL shader background — plasma navy + cream */}
-      <ShaderBackground className="opacity-70" />
-      {/* Tinte oscuro encima del shader para mantener legibilidad del texto */}
+      {/* Background — dot pattern + glow orbs (sin GPU continuo) */}
       <div
         aria-hidden
-        className="absolute inset-0 bg-[color:var(--color-navy-900)]/55"
+        className="absolute inset-0 opacity-[0.05]"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 1px 1px, rgba(247,235,200,0.7) 1px, transparent 0)",
+          backgroundSize: "26px 26px",
+        }}
+      />
+      <div
+        aria-hidden
+        className="absolute -left-40 top-1/3 h-[460px] w-[460px] rounded-full bg-[color:var(--color-cream-warm)]/15 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="absolute -right-32 bottom-0 h-[400px] w-[400px] rounded-full bg-[color:var(--color-navy-500)]/30 blur-3xl"
       />
 
       <div className="relative z-10 mx-auto flex max-w-[1400px] flex-col gap-16 px-5 pt-16 md:gap-20 md:px-10 md:pt-24">

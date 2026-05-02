@@ -16,6 +16,12 @@ import { Logo } from "./logo";
  */
 
 const FRAME_COUNT = 96;
+/**
+ * CRITICAL_FRAMES son los unicos que bloquean al usuario. El resto carga en
+ * background mientras la pagina ya es interactiva. Crucial para Cuba: con
+ * 16 frames la pagina abre en ~2-4s en 3G, no en 15-20s con los 96.
+ */
+const CRITICAL_FRAMES = 16;
 const FRAME_PATH = (i: number) =>
   `/hero-frames/${String(i).padStart(3, "0")}.webp`;
 
@@ -26,7 +32,7 @@ export function Preloader() {
 
   useEffect(() => {
     let mounted = true;
-    let loaded = 0;
+    let criticalLoaded = 0;
 
     // Bloquea scroll del body mientras el preloader está visible
     if (typeof document !== "undefined") {
@@ -34,31 +40,42 @@ export function Preloader() {
       lockedRef.current = true;
     }
 
-    const onLoaded = () => {
+    const onCriticalLoaded = () => {
       if (!mounted) return;
-      loaded += 1;
-      setProgress(Math.round((loaded / FRAME_COUNT) * 100));
-      if (loaded >= FRAME_COUNT) {
-        // Pequeño delay para que el 100% sea visible antes del fade
+      criticalLoaded += 1;
+      setProgress(Math.round((criticalLoaded / CRITICAL_FRAMES) * 100));
+      if (criticalLoaded >= CRITICAL_FRAMES) {
         setTimeout(() => {
           if (!mounted) return;
           setDone(true);
-        }, 250);
+        }, 200);
       }
     };
 
-    for (let i = 1; i <= FRAME_COUNT; i++) {
+    // 1. Critical frames: bloquean el preloader
+    for (let i = 1; i <= CRITICAL_FRAMES; i++) {
       const img = new Image();
-      // Los primeros 8 frames se priorizan: son los visibles al instante
-      img.fetchPriority = i <= 8 ? "high" : "low";
+      img.fetchPriority = "high";
       img.decoding = "async";
-      img.onload = onLoaded;
-      img.onerror = onLoaded; // si falla uno, no nos quedamos colgados
+      img.onload = onCriticalLoaded;
+      img.onerror = onCriticalLoaded;
       img.src = FRAME_PATH(i);
     }
 
+    // 2. Resto de frames: cargan en background, no bloquean
+    // Pequeño retraso para que los criticos arranquen primero
+    const bgTimer = setTimeout(() => {
+      for (let i = CRITICAL_FRAMES + 1; i <= FRAME_COUNT; i++) {
+        const img = new Image();
+        img.fetchPriority = "low";
+        img.decoding = "async";
+        img.src = FRAME_PATH(i);
+      }
+    }, 500);
+
     return () => {
       mounted = false;
+      clearTimeout(bgTimer);
       if (lockedRef.current) {
         document.body.style.overflow = "";
         lockedRef.current = false;
@@ -151,8 +168,8 @@ export function Preloader() {
 
             {/* Counter de frames cargados */}
             <div className="mt-3 font-mono text-[9px] uppercase tracking-[0.25em] text-[color:var(--color-cream-soft)]/35 md:text-[10px]">
-              {Math.round((progress / 100) * FRAME_COUNT)} /{" "}
-              {FRAME_COUNT} frames
+              {Math.round((progress / 100) * CRITICAL_FRAMES)} /{" "}
+              {CRITICAL_FRAMES} frames
             </div>
           </div>
         </motion.div>

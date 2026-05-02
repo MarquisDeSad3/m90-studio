@@ -34,7 +34,7 @@ const STEPS: Step[] = [
     label: "Modelo",
     body: "Eliges tu teléfono — iPhone, Samsung, Pixel, Xiaomi. Cargamos la plantilla exacta del modelo y vas directo al editor.",
     image:
-      "https://images.unsplash.com/photo-1574169208507-84376144848b?auto=format&fit=crop&w=720&h=540&q=80",
+      "https://images.unsplash.com/photo-1574169208507-84376144848b?auto=format&fit=crop&w=480&h=360&q=80",
     imageAlt: "Modelo de teléfono limpio",
   },
   {
@@ -42,7 +42,7 @@ const STEPS: Step[] = [
     label: "Layout",
     body: "Single a pantalla completa, mosaicos de 4 o 9, asimétrico, polaroid, magazine. El layout es cómo cuentas tu historia.",
     image:
-      "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?auto=format&fit=crop&w=720&h=540&q=80",
+      "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?auto=format&fit=crop&w=480&h=360&q=80",
     imageAlt: "Composición de fundas custom",
   },
   {
@@ -50,7 +50,7 @@ const STEPS: Step[] = [
     label: "Fotos",
     body: "Subes desde el móvil, recortas, mueves, haces zoom. Comprimimos en el navegador para que cargue rápido aunque tengas mala señal.",
     image:
-      "https://images.unsplash.com/photo-1605236453806-6ff36851218e?auto=format&fit=crop&w=720&h=540&q=80",
+      "https://images.unsplash.com/photo-1605236453806-6ff36851218e?auto=format&fit=crop&w=480&h=360&q=80",
     imageAlt: "Foto en la pantalla del móvil",
   },
   {
@@ -58,7 +58,7 @@ const STEPS: Step[] = [
     label: "WhatsApp",
     body: "Confirmas el pedido por chat. Pago a la entrega o por Transfermóvil. Imprimimos en 24-48h y la llevamos a tu puerta.",
     image:
-      "https://images.unsplash.com/photo-1592890288564-76628a30a657?auto=format&fit=crop&w=720&h=540&q=80",
+      "https://images.unsplash.com/photo-1592890288564-76628a30a657?auto=format&fit=crop&w=480&h=360&q=80",
     imageAlt: "Mano sosteniendo teléfono — chat WhatsApp",
   },
 ];

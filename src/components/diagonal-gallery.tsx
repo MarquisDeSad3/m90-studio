@@ -11,14 +11,14 @@ import { useRef } from "react";
  */
 
 const PHOTOS = [
-  "https://images.unsplash.com/photo-1556656793-08538906a9f8?auto=format&fit=crop&w=900&h=1100&q=80",
-  "https://images.unsplash.com/photo-1592890288564-76628a30a657?auto=format&fit=crop&w=900&h=1100&q=80",
-  "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?auto=format&fit=crop&w=900&h=1100&q=80",
-  "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=900&h=1100&q=80",
-  "https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?auto=format&fit=crop&w=900&h=1100&q=80",
-  "https://images.unsplash.com/photo-1574169208507-84376144848b?auto=format&fit=crop&w=900&h=1100&q=80",
-  "https://images.unsplash.com/photo-1605236453806-6ff36851218e?auto=format&fit=crop&w=900&h=1100&q=80",
-  "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?auto=format&fit=crop&w=900&h=1100&q=80",
+  "https://images.unsplash.com/photo-1556656793-08538906a9f8?auto=format&fit=crop&w=560&h=685&q=80",
+  "https://images.unsplash.com/photo-1592890288564-76628a30a657?auto=format&fit=crop&w=560&h=685&q=80",
+  "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?auto=format&fit=crop&w=560&h=685&q=80",
+  "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=560&h=685&q=80",
+  "https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?auto=format&fit=crop&w=560&h=685&q=80",
+  "https://images.unsplash.com/photo-1574169208507-84376144848b?auto=format&fit=crop&w=560&h=685&q=80",
+  "https://images.unsplash.com/photo-1605236453806-6ff36851218e?auto=format&fit=crop&w=560&h=685&q=80",
+  "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?auto=format&fit=crop&w=560&h=685&q=80",
 ];
 
 const IMAGES = Array.from({ length: 16 }, (_, i) => PHOTOS[i % PHOTOS.length]);

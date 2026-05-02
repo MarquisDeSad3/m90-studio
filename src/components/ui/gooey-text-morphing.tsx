@@ -20,6 +20,7 @@ export function GooeyText({
 }: GooeyTextProps) {
   const text1Ref = React.useRef<HTMLSpanElement>(null);
   const text2Ref = React.useRef<HTMLSpanElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     let textIndex = texts.length - 1;
@@ -27,6 +28,8 @@ export function GooeyText({
     let morph = 0;
     let cooldown = cooldownTime;
     let raf = 0;
+    let isVisible = false;
+    let isTabActive = !document.hidden;
 
     const setMorph = (fraction: number) => {
       const t1 = text1Ref.current;
@@ -63,8 +66,8 @@ export function GooeyText({
       setMorph(fraction);
     };
 
-    function animate() {
-      raf = requestAnimationFrame(animate);
+    function tick() {
+      raf = requestAnimationFrame(tick);
       const newTime = new Date();
       const shouldIncrementIndex = cooldown > 0;
       const dt = (newTime.getTime() - time.getTime()) / 1000;
@@ -87,15 +90,50 @@ export function GooeyText({
       }
     }
 
-    animate();
+    function start() {
+      if (raf) return; // ya corriendo
+      time = new Date(); // resetear dt para no saltar al reanudar
+      tick();
+    }
+
+    function stop() {
+      if (!raf) return;
+      cancelAnimationFrame(raf);
+      raf = 0;
+    }
+
+    function maybeRun() {
+      if (isVisible && isTabActive) start();
+      else stop();
+    }
+
+    // Solo corremos el RAF cuando el componente esta en viewport Y la pestaña
+    // esta activa. Sin esto el morph chupa CPU/GPU 24/7 aunque el usuario este
+    // en otra seccion o en otra pestaña — bateria muerta gratis.
+    const observer = new IntersectionObserver(
+      (entries) => {
+        isVisible = entries[0]?.isIntersecting ?? false;
+        maybeRun();
+      },
+      { threshold: 0.05 },
+    );
+    if (containerRef.current) observer.observe(containerRef.current);
+
+    const onVisibility = () => {
+      isTabActive = !document.hidden;
+      maybeRun();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
-      cancelAnimationFrame(raf);
+      stop();
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [texts, morphTime, cooldownTime]);
 
   return (
-    <div className={cn("relative", className)}>
+    <div ref={containerRef} className={cn("relative", className)}>
       <svg className="absolute h-0 w-0" aria-hidden="true" focusable="false">
         <defs>
           <filter id="threshold">

@@ -9,6 +9,7 @@ import {
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowDownRight } from "lucide-react";
+import { scrollHeroThenRun } from "@/lib/scroll-hero";
 
 /**
  * HeroFrames — scroll-driven canvas frame swap.
@@ -45,49 +46,12 @@ export function HeroFrames() {
   const router = useRouter();
 
   /**
-   * Click handler del CTA: en lugar de navegar inmediato, scrollea por todo el
-   * hero (animacion completa de los frames) y al final navega a /disenar.
-   * Si el usuario ya scrolleo casi todo el hero, navega directo.
+   * Click handler: scrollea por todo el hero (animacion completa de los frames)
+   * y al terminar navega a /disenar. Logica compartida en scrollHeroThenRun.
    */
   function handleCtaClick(e: MouseEvent<HTMLAnchorElement>) {
     e.preventDefault();
-    const section = sectionRef.current;
-    if (!section) {
-      router.push("/disenar");
-      return;
-    }
-
-    const sectionTop = section.offsetTop;
-    const sectionEnd = sectionTop + section.offsetHeight - window.innerHeight;
-    const currentY = window.scrollY;
-    const remaining = sectionEnd - currentY;
-
-    // Si ya casi terminamos el hero, navegar directo
-    if (remaining < window.innerHeight * 0.3) {
-      router.push("/disenar");
-      return;
-    }
-
-    // Scrollear hasta el final del hero. Animacion manual con RAF para que
-    // funcione independiente de Lenis y se vea fluida.
-    const startY = currentY;
-    const distance = sectionEnd - startY;
-    const duration = Math.min(2400, Math.max(1200, distance * 0.6));
-    const startTime = performance.now();
-
-    function step(now: number) {
-      const t = Math.min(1, (now - startTime) / duration);
-      // ease-in-out cubic
-      const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-      window.scrollTo(0, startY + distance * eased);
-      if (t < 1) {
-        requestAnimationFrame(step);
-      } else {
-        // Pequeno delay para que el usuario vea el ultimo frame antes de navegar
-        setTimeout(() => router.push("/disenar"), 350);
-      }
-    }
-    requestAnimationFrame(step);
+    scrollHeroThenRun(() => router.push("/disenar"));
   }
 
   // Precarga TODOS los frames. Los primeros se cargan con prioridad alta

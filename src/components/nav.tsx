@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { useRouter, usePathname } from "next/navigation";
 import { ArrowUpRight, Sparkles } from "lucide-react";
 import { Logo } from "./logo";
+import { scrollHeroThenRun } from "@/lib/scroll-hero";
 
 /**
  * Nav minimal: Logo izq · links texto der · CTA pill.
@@ -20,6 +22,18 @@ export function Nav() {
   const [hidden, setHidden] = useState(false);
   const { scrollYProgress } = useScroll();
   const progressScale = useTransform(scrollYProgress, [0, 1], [0, 1]);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  /**
+   * Click en "Comenzar": si estamos en home y hay hero, dispara el scroll
+   * cinematografico y luego navega. Si estamos en otra ruta, navega directo.
+   */
+  function handleCtaClick(e: MouseEvent<HTMLAnchorElement>) {
+    if (pathname !== "/") return; // dejar que el browser navegue normal
+    e.preventDefault();
+    scrollHeroThenRun(() => router.push("/disenar"));
+  }
 
   useEffect(() => {
     let prev = typeof window !== "undefined" ? window.scrollY : 0;
@@ -66,9 +80,10 @@ export function Nav() {
             ))}
           </nav>
 
-          {/* CTA der — siempre visible (mobile + desktop) */}
+          {/* CTA der — siempre visible. En home dispara scroll cinematico. */}
           <a
             href="/disenar"
+            onClick={handleCtaClick}
             className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-[color:var(--color-cream-soft)] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--color-navy)] shadow-[0_12px_30px_-12px_rgba(247,235,200,0.4)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-14px_rgba(247,235,200,0.55)] md:px-5 md:py-2.5 md:text-[12px]"
           >
             <Sparkles className="hidden h-3.5 w-3.5 sm:block" />

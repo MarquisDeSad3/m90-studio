@@ -17,7 +17,7 @@ import {
   dataUrlToBlob,
   getOriginalFile,
 } from "@/lib/editor/original-photos";
-import { whatsappUrl } from "@/lib/utils";
+import { cn, whatsappUrl } from "@/lib/utils";
 
 type Composed = {
   dataUrl: string;
@@ -42,6 +42,9 @@ export function StepConfirm() {
   const [composing, setComposing] = useState(true);
   const [composeError, setComposeError] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [touched, setTouched] = useState(false);
   const [sharing, setSharing] = useState(false);
   /** Cuando el pedido se creo en backend. UI cambia a pantalla de exito
       con boton directo a WhatsApp (link real, no window.open — los popup
@@ -83,6 +86,29 @@ export function StepConfirm() {
       </section>
     );
   }
+
+  /* ============================================================
+     Validacion del cliente — nombre y telefono OBLIGATORIOS
+     ============================================================ */
+  const trimmedName = customerName.trim();
+  const trimmedPhone = customerPhone.trim();
+  const phoneDigits = trimmedPhone.replace(/[^\d]/g, "");
+
+  const nameError =
+    trimmedName.length === 0
+      ? "Ponete un nombre"
+      : trimmedName.length < 2
+        ? "Nombre demasiado corto"
+        : null;
+  const phoneError =
+    phoneDigits.length === 0
+      ? "Ponete un número de WhatsApp"
+      : phoneDigits.length < 7
+        ? "Número demasiado corto"
+        : phoneDigits.length > 16
+          ? "Número demasiado largo"
+          : null;
+  const formValid = !nameError && !phoneError;
 
   /* ============================================================
      PANTALLA DE ÉXITO — pedido ya creado, falta que el usuario
@@ -160,6 +186,11 @@ export function StepConfirm() {
    */
   async function handleShare() {
     if (!composed || !layout) return;
+    setTouched(true);
+    if (!formValid) {
+      setComposeError("Necesitamos tu nombre y número de WhatsApp.");
+      return;
+    }
     setSharing(true);
     setComposeError(null);
 
@@ -187,6 +218,8 @@ export function StepConfirm() {
                 h: model.camera[3],
               }
             : null,
+          customerName: trimmedName,
+          customerPhone: phoneDigits,
           customerNotes: note.trim(),
           photos: state.photos.map((p) => ({
             slotIndex: p.slotIndex,
@@ -385,6 +418,84 @@ export function StepConfirm() {
             </dl>
           </div>
 
+          {/* Datos del cliente — OBLIGATORIOS */}
+          <div className="rounded-2xl border border-[color:var(--color-navy)]/12 bg-white p-5 md:p-6">
+            <h3 className="font-mono text-[10px] uppercase tracking-[0.3em] text-[color:var(--color-navy-500)]">
+              · Tus datos
+            </h3>
+            <p className="mt-1 text-[12px] text-[color:var(--color-navy)]/55 md:text-[13px]">
+              Necesarios para coordinar el pedido por WhatsApp.
+            </p>
+
+            <div className="mt-4 flex flex-col gap-4">
+              {/* Nombre */}
+              <div>
+                <label
+                  htmlFor="customer-name"
+                  className="block text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-navy)]/65"
+                >
+                  Nombre <span className="text-red-700">*</span>
+                </label>
+                <input
+                  id="customer-name"
+                  type="text"
+                  inputMode="text"
+                  autoComplete="name"
+                  required
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  onBlur={() => setTouched(true)}
+                  placeholder="Tu nombre completo"
+                  maxLength={120}
+                  className={cn(
+                    "mt-1.5 h-11 w-full rounded-full border bg-[color:var(--color-paper)] px-4 text-[14px] text-[color:var(--color-navy)] placeholder:text-[color:var(--color-navy)]/35 focus:outline-none focus:ring-2 md:text-[15px]",
+                    nameError && touched
+                      ? "border-red-500 focus:border-red-600 focus:ring-red-500/15"
+                      : "border-[color:var(--color-navy)]/15 focus:border-[color:var(--color-navy-500)] focus:ring-[color:var(--color-navy-500)]/15",
+                  )}
+                />
+                {nameError && touched && (
+                  <p className="mt-1 text-[12px] text-red-700">{nameError}</p>
+                )}
+              </div>
+
+              {/* Teléfono */}
+              <div>
+                <label
+                  htmlFor="customer-phone"
+                  className="block text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-navy)]/65"
+                >
+                  Teléfono (WhatsApp){" "}
+                  <span className="text-red-700">*</span>
+                </label>
+                <input
+                  id="customer-phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  required
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  onBlur={() => setTouched(true)}
+                  placeholder="5363285022"
+                  maxLength={20}
+                  className={cn(
+                    "mt-1.5 h-11 w-full rounded-full border bg-[color:var(--color-paper)] px-4 text-[14px] text-[color:var(--color-navy)] placeholder:text-[color:var(--color-navy)]/35 focus:outline-none focus:ring-2 md:text-[15px]",
+                    phoneError && touched
+                      ? "border-red-500 focus:border-red-600 focus:ring-red-500/15"
+                      : "border-[color:var(--color-navy)]/15 focus:border-[color:var(--color-navy-500)] focus:ring-[color:var(--color-navy-500)]/15",
+                  )}
+                />
+                {phoneError && touched && (
+                  <p className="mt-1 text-[12px] text-red-700">{phoneError}</p>
+                )}
+                <p className="mt-1 text-[10px] text-[color:var(--color-navy)]/45 md:text-[11px]">
+                  Solo números. Sin espacios ni guiones.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Notas opcionales */}
           <div>
             <label
@@ -411,7 +522,7 @@ export function StepConfirm() {
           <div className="flex flex-col gap-3">
             <button
               onClick={handleShare}
-              disabled={sharing || composing || !composed}
+              disabled={sharing || composing || !composed || !formValid}
               className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#25D366] px-7 py-4 text-[13px] font-semibold uppercase tracking-[0.22em] text-white shadow-[0_18px_40px_-18px_rgba(37,211,102,0.55)] transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_50px_-16px_rgba(37,211,102,0.7)] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[color:var(--color-navy)]/15 disabled:text-[color:var(--color-navy)]/40 disabled:shadow-none disabled:hover:transform-none"
             >
               {sharing ? (

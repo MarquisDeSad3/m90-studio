@@ -46,8 +46,20 @@ const orderInputSchema = z.object({
     .nullable()
     .optional(),
   customerNotes: z.string().max(800).optional().default(""),
-  customerPhone: z.string().max(40).optional(),
-  customerName: z.string().max(120).optional(),
+  /** Telefono del cliente — OBLIGATORIO. Validamos por digitos para
+      tolerar espacios/guiones que el cliente pueda meter por accidente. */
+  customerPhone: z
+    .string()
+    .min(7, "Teléfono demasiado corto")
+    .max(40)
+    .refine(
+      (v) => v.replace(/[^\d]/g, "").length >= 7,
+      "Teléfono inválido (min 7 dígitos)",
+    ),
+  customerName: z
+    .string()
+    .min(2, "Nombre demasiado corto")
+    .max(120),
   photos: z.array(photoSchema).min(1).max(20),
 });
 
@@ -178,8 +190,8 @@ export async function POST(req: Request) {
       .insert(orders)
       .values({
         code,
-        customerPhone: parsed.customerPhone ?? null,
-        customerName: parsed.customerName ?? null,
+        customerPhone: parsed.customerPhone,
+        customerName: parsed.customerName,
         phoneModelSlug: parsed.phoneModelSlug,
         phoneModelName: parsed.phoneModelName,
         layoutId: parsed.layoutId,

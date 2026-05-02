@@ -27,6 +27,17 @@
   --shadow-brand-soft: 0 18px 50px -22px rgba(1, 27, 83, 0.25);
 }
 
+/* Cycle word animation (LayoutsTicker — `Hacemos + palabra`).
+   Pure CSS, sin libs externas. El `key` de React hace remount → keyframe
+   se reproduce desde el inicio en cada cambio. */
+@keyframes m90-cycle-in {
+  from { opacity: 0; transform: translateY(28%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.m90-cycle-word {
+  animation: m90-cycle-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 html,
 body {
   background: var(--color-paper);

@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion, useInView } from "framer-motion";
+import { motion, useInView } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
 /**
@@ -91,9 +91,9 @@ export function LayoutsTicker() {
               Hacemos
             </motion.span>
 
-            {/* Una sola palabra activa que se reemplaza con AnimatePresence.
-                Evita la stack absoluta de motion.spans (frágil en mobile cuando
-                las inline-styles no se aplicaban bien). */}
+            {/* Palabra activa: texto que cambia cada 500ms via setInterval.
+                Animacion CSS keyframe via key={activeIdx} → cada remount
+                dispara el `m90-cycle-in` definido en globals.css. */}
             <div
               className="relative flex items-center justify-center overflow-hidden"
               style={{
@@ -101,18 +101,12 @@ export function LayoutsTicker() {
                 width: "5.8em",
               }}
             >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.span
-                  key={WORDS[activeIdx]}
-                  initial={{ opacity: 0, y: "60%" }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: "-60%" }}
-                  transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-                  className="absolute inset-0 flex items-center justify-center whitespace-nowrap font-display tracking-tight text-[color:var(--color-cream-warm)]"
-                >
-                  {WORDS[activeIdx]}
-                </motion.span>
-              </AnimatePresence>
+              <span
+                key={activeIdx}
+                className="m90-cycle-word absolute inset-0 flex items-center justify-center whitespace-nowrap font-display tracking-tight text-[color:var(--color-cream-warm)]"
+              >
+                {WORDS[activeIdx]}
+              </span>
             </div>
           </div>
 

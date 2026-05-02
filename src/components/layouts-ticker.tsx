@@ -247,9 +247,9 @@ export function LayoutsTicker() {
 
           {/* Phrase row — Hacemos + word column centered */}
           <div
-            className="flex items-center justify-center gap-4 md:gap-8"
+            className="flex items-center justify-center gap-2.5 sm:gap-4 md:gap-8"
             style={{
-              fontSize: "clamp(48px, 9vw, 140px)",
+              fontSize: "clamp(30px, 9.5vw, 140px)",
               lineHeight: 1,
             }}
           >

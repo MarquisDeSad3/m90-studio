@@ -1,0 +1,110 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* ============================================================
+   M90 STUDIO — brand tokens
+   Sub-brand de M90 Sports. Paleta: navy (primario) + crema (secundario).
+   Tipografía: Familiar Pro Bold italic.
+   ============================================================ */
+@theme {
+  --color-navy: #011b53;
+  --color-navy-900: #00102f;
+  --color-navy-700: #0a2a75;
+  --color-navy-500: #1d3d8f;
+  --color-cream: #efd9a3;
+  --color-cream-soft: #f7ebc8;
+  --color-cream-warm: #e8c98a;
+  --color-paper: #fafaf6;
+  --color-ink: #0a0d1a;
+
+  --font-display: var(--font-familiar-pro), "Arial Black", sans-serif;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo,
+    Monaco, Consolas, monospace;
+
+  --shadow-brand: 0 24px 60px -20px rgba(1, 27, 83, 0.35);
+  --shadow-brand-soft: 0 18px 50px -22px rgba(1, 27, 83, 0.25);
+}
+
+html,
+body {
+  background: var(--color-paper);
+  color: var(--color-navy);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: var(--color-navy);
+  color: var(--color-cream-soft);
+}
+
+/* Disable iOS text-size auto-bumping on rotation */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Tweak default focus ring to match brand */
+:focus-visible {
+  outline: 2px solid var(--color-navy);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+.font-display {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 700;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+/* Subtle dot pattern background (for sections) */
+.bg-dots {
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    rgba(1, 27, 83, 0.15) 1px,
+    transparent 0
+  );
+  background-size: 22px 22px;
+}
+
+/* Soft grid pattern (heros) */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(1, 27, 83, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(1, 27, 83, 0.08) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+/* Marquee — used in trust band */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+/* Reduce motion for users who ask */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

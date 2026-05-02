@@ -6,6 +6,10 @@ import { useEditor } from "@/lib/editor/store";
 import { findLayout } from "@/lib/data/layouts";
 import { PHONE_MODELS } from "@/lib/data/phone-models";
 import { compressImageFile } from "@/lib/editor/image-utils";
+import {
+  clearOriginal,
+  setOriginalFile,
+} from "@/lib/editor/original-photos";
 import { cn } from "@/lib/utils";
 import { EditorCanvas } from "./editor-canvas";
 import { CropModal } from "./crop-modal";
@@ -89,10 +93,15 @@ export function StepPhotos() {
     setUploading(true);
     setError(null);
     try {
+      // Guardamos la File original en memoria para mandarla al backend con
+      // calidad maxima al submitear. La version comprimida es solo para el
+      // editor visual (crop preview).
+      setOriginalFile(activeSlot, file);
       const dataUrl = await compressImageFile(file);
       setCropSrc(dataUrl);
     } catch (err) {
       console.error("compressImageFile failed:", err);
+      clearOriginal(activeSlot);
       setError(
         "No pude procesar la imagen. Probá con otra (formato JPG o PNG).",
       );

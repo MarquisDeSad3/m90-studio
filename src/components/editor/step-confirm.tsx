@@ -13,6 +13,10 @@ import { useEditor } from "@/lib/editor/store";
 import { findLayout } from "@/lib/data/layouts";
 import { PHONE_MODELS } from "@/lib/data/phone-models";
 import { composeFinalCover } from "@/lib/editor/image-utils";
+import {
+  dataUrlToBlob,
+  getOriginalFile,
+} from "@/lib/editor/original-photos";
 import { whatsappUrl } from "@/lib/utils";
 
 type Composed = {
@@ -70,9 +74,11 @@ export function StepConfirm() {
     );
   }
 
-  function buildWhatsAppMessage(): string {
+  function buildWhatsAppMessage(orderCode: string, adminUrl: string): string {
+    const siteOrigin =
+      typeof window !== "undefined" ? window.location.origin : "";
     const lines = [
-      "Hola M90, quiero pedir mi cover personalizado.",
+      `Hola M90, quiero pedir mi cover. Pedido ${orderCode}.`,
       "",
       `· Modelo: ${model?.name ?? "(no especificado)"}`,
       `· Layout: ${layout!.count} foto${layout!.count > 1 ? "s" : ""} (${layout!.name.split(" · ")[1] ?? layout!.category})`,
@@ -81,50 +87,88 @@ export function StepConfirm() {
     if (note.trim()) {
       lines.push("", "Notas:", note.trim());
     }
-    lines.push("", "Adjunto la imagen del diseño.");
+    lines.push("", `Detalles: ${siteOrigin}${adminUrl}`);
     return lines.join("\n");
   }
 
+  /**
+   * Sube el pedido al backend (originales + preview), recibe el orderCode y
+   * abre WhatsApp con un mensaje pre-llenado que incluye el codigo + URL del
+   * admin para que M90 vea las fotos en alta resolucion.
+   */
   async function handleShare() {
-    if (!composed) return;
+    if (!composed || !layout) return;
     setSharing(true);
-    const message = buildWhatsAppMessage();
+    setComposeError(null);
 
-    // Intentar Web Share API con imagen — funciona en mobile moderno
-    const file = new File([composed.blob], "m90-cover.jpg", {
-      type: "image/jpeg",
-    });
-    const canShareFiles =
-      typeof navigator !== "undefined" &&
-      typeof navigator.canShare === "function" &&
-      navigator.canShare({ files: [file] });
+    try {
+      // Construimos el FormData con originales + preview + datos del pedido
+      const fd = new FormData();
+      fd.append(
+        "data",
+        JSON.stringify({
+          phoneModelSlug: model?.slug ?? "unknown",
+          phoneModelName: model?.name ?? "Modelo no especificado",
+          layoutId: layout.id,
+          layoutName: layout.name,
+          customerNotes: note.trim(),
+          photos: state.photos.map((p) => ({
+            slotIndex: p.slotIndex,
+            transform: p.crop
+              ? {
+                  crop: { x: 0, y: 0 },
+                  zoom: 1,
+                  rotation: 0,
+                  aspect: undefined,
+                }
+              : null,
+          })),
+        }),
+      );
 
-    if (canShareFiles && typeof navigator.share === "function") {
-      try {
-        await navigator.share({
-          files: [file],
-          text: message,
-          title: "Mi cover M90",
-        });
-        setSharing(false);
-        return;
-      } catch (err) {
-        // Si el usuario cancelo, ok. Si fallo otra cosa, intentar fallback.
-        if (
-          err instanceof Error &&
-          err.name === "AbortError"
-        ) {
-          setSharing(false);
-          return;
+      for (const p of state.photos) {
+        const original = getOriginalFile(p.slotIndex);
+        if (original) {
+          fd.append(`photo_${p.slotIndex}`, original, original.name);
+        } else {
+          // Fallback: si perdimos el original (recargo de pagina), mandamos
+          // la version cropeada como blob — calidad menor pero printable.
+          fd.append(
+            `photo_${p.slotIndex}`,
+            dataUrlToBlob(p.src),
+            `slot-${p.slotIndex}.jpg`,
+          );
         }
       }
-    }
+      fd.append("preview", composed.blob, "preview.jpg");
 
-    // Fallback: descargar imagen + abrir WhatsApp con texto
-    triggerDownload();
-    const url = whatsappUrl(message);
-    window.open(url, "_blank", "noopener,noreferrer");
-    setSharing(false);
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        body: fd,
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error ?? `HTTP ${res.status}`);
+      }
+
+      const result: { code: string; adminUrl: string } = await res.json();
+      const message = buildWhatsAppMessage(result.code, result.adminUrl);
+      const url = whatsappUrl(message);
+
+      // Abrir WhatsApp con el mensaje pre-llenado. El cliente solo presiona
+      // "Enviar" — no se puede automatizar mas que esto sin WhatsApp Business API.
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      console.error("[step-confirm] order submit failed:", err);
+      setComposeError(
+        err instanceof Error
+          ? `No pude enviar el pedido: ${err.message}`
+          : "No pude enviar el pedido. Probá de nuevo.",
+      );
+    } finally {
+      setSharing(false);
+    }
   }
 
   function triggerDownload() {

@@ -184,15 +184,19 @@ export const orders = pgTable(
   "orders",
   {
     id: id("ord"),
-    code: text("code").notNull(),         // human-friendly e.g. M90-0042
-    userId: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
-    phoneModelId: text("phone_model_id")
-      .notNull()
-      .references(() => phoneModels.id, { onDelete: "restrict" }),
-    layoutId: text("layout_id").notNull(),     // refers to LAYOUTS const, not a table
-    status: orderStatusEnum("status").default("draft").notNull(),
+    code: text("code").notNull(),
+    /** Opcional: se setea si el cliente loggeo en algun momento. MVP permite
+        ordenes anonimas (guest checkout) — el "usuario" lo tracketamos por
+        WhatsApp inbound del cliente. */
+    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+    customerPhone: text("customer_phone"),
+    customerName: text("customer_name"),
+    /** Snapshot del catalogo (constantes del codigo, no FK). */
+    phoneModelSlug: text("phone_model_slug").notNull(),
+    phoneModelName: text("phone_model_name").notNull(),
+    layoutId: text("layout_id").notNull(),
+    layoutName: text("layout_name").notNull(),
+    status: orderStatusEnum("status").default("submitted").notNull(),
 
     // Computed/exported assets (S3-ish URLs once uploaded)
     previewUrl: text("preview_url"),       // small JPG/PNG of the mockup
@@ -286,10 +290,6 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(users, {
     fields: [orders.userId],
     references: [users.id],
-  }),
-  phoneModel: one(phoneModels, {
-    fields: [orders.phoneModelId],
-    references: [phoneModels.id],
   }),
   photos: many(orderPhotos),
   events: many(orderEvents),

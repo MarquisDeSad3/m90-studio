@@ -118,10 +118,10 @@ export function DiagonalGallery() {
         ))}
       </div>
 
-      {/* Centered headline with mix-blend-difference */}
+      {/* Centered headline. Sin mix-blend-difference (asesino GPU mobile). */}
       <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center px-6">
         <div
-          className="text-center mix-blend-difference"
+          className="rounded-2xl bg-[color:var(--color-navy-900)]/40 px-8 py-6 text-center backdrop-blur-sm"
           style={{ color: "var(--color-cream-soft)" }}
         >
           <div className="font-mono text-[9px] uppercase tracking-[0.3em] text-[color:var(--color-cream-warm)] sm:text-[10px] sm:tracking-[0.4em]">

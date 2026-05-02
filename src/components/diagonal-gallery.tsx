@@ -30,10 +30,11 @@ export function DiagonalGallery() {
     offset: ["start end", "end start"],
   });
 
-  const row1X = useTransform(scrollYProgress, [0, 1], ["-10%", "-45%"]);
-  const row2X = useTransform(scrollYProgress, [0, 1], ["-45%", "-10%"]);
-  const row3X = useTransform(scrollYProgress, [0, 1], ["-15%", "-50%"]);
-  const row4X = useTransform(scrollYProgress, [0, 1], ["-50%", "-15%"]);
+  // Parallax mas dinamico — recorrido amplio = mas sensacion de movimiento
+  const row1X = useTransform(scrollYProgress, [0, 1], ["-5%", "-55%"]);
+  const row2X = useTransform(scrollYProgress, [0, 1], ["-55%", "-5%"]);
+  const row3X = useTransform(scrollYProgress, [0, 1], ["-10%", "-60%"]);
+  const row4X = useTransform(scrollYProgress, [0, 1], ["-60%", "-10%"]);
 
   const rows = [
     { images: IMAGES.slice(0, 4), x: row1X },
@@ -61,9 +62,9 @@ export function DiagonalGallery() {
         </a>
       </div>
 
-      {/* Rotated diagonal grid — tiles bigger en mobile */}
+      {/* Rotated diagonal grid — tiles bigger en mobile, espaciado tight */}
       <div
-        className="absolute inset-0 flex flex-col justify-center gap-3 md:gap-6"
+        className="absolute inset-0 flex flex-col justify-center gap-1 md:gap-2"
         style={{
           transform: "rotate(-10deg) scale(1.3)",
           transformOrigin: "center center",
@@ -72,10 +73,16 @@ export function DiagonalGallery() {
         {rows.map((row, i) => (
           <motion.div
             key={i}
-            style={{ x: row.x, width: "260%" }}
-            className="flex flex-shrink-0 items-center gap-3 md:gap-5"
+            style={{
+              x: row.x,
+              width: "200%",
+              willChange: "transform",
+              transform: "translateZ(0)",
+            }}
+            className="flex flex-shrink-0 items-center gap-1 md:gap-2"
           >
-            {[...row.images, ...row.images, ...row.images].map((src, j) => (
+            {/* Repetimos solo 2x (antes 3x) para reducir DOM en mobile */}
+            {[...row.images, ...row.images].map((src, j) => (
               <a
                 key={j}
                 href="/disenar"
@@ -87,9 +94,10 @@ export function DiagonalGallery() {
                   alt=""
                   draggable={false}
                   loading="lazy"
-                  className="size-full select-none object-cover grayscale contrast-[1.15] transition-all duration-700 group-hover:grayscale-0 group-hover:scale-[1.06]"
+                  decoding="async"
+                  className="size-full select-none object-cover grayscale contrast-[1.15] transition-transform duration-300 group-hover:scale-[1.04]"
                 />
-                <div className="absolute inset-0 bg-[color:var(--color-cream-warm)]/0 mix-blend-multiply transition-colors duration-500 group-hover:bg-[color:var(--color-cream-warm)]/30" />
+                <div className="absolute inset-0 bg-[color:var(--color-cream-warm)]/0 transition-colors duration-300 group-hover:bg-[color:var(--color-cream-warm)]/25" />
               </a>
             ))}
           </motion.div>

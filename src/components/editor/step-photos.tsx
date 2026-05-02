@@ -60,13 +60,42 @@ export function StepPhotos() {
       setActiveSlot(null);
       return;
     }
+
+    // HEIC del iPhone no se puede procesar en Chrome/Android. Avisar al
+    // usuario para que cambie el formato en su iPhone (Settings > Camera >
+    // Formats > Most Compatible) o use otra foto.
+    const isHeic =
+      /\.(heic|heif)$/i.test(file.name) ||
+      file.type === "image/heic" ||
+      file.type === "image/heif";
+    if (isHeic) {
+      setError(
+        "Foto en formato HEIC (iPhone). Cambiala a JPG en Ajustes > Cámara > Formatos > Más Compatible, o probá con otra foto.",
+      );
+      setActiveSlot(null);
+      return;
+    }
+
+    // Limite de tamaño: si la foto pesa más de 30MB, probablemente es video
+    // o un movil viejo va a colgarse comprimiéndola. Avisar antes.
+    if (file.size > 30 * 1024 * 1024) {
+      setError(
+        "Foto demasiado pesada (más de 30MB). Probá con otra o reducí el tamaño desde tu teléfono.",
+      );
+      setActiveSlot(null);
+      return;
+    }
+
     setUploading(true);
     setError(null);
     try {
       const dataUrl = await compressImageFile(file);
       setCropSrc(dataUrl);
-    } catch {
-      setError("No pude leer la imagen. Probá con otra.");
+    } catch (err) {
+      console.error("compressImageFile failed:", err);
+      setError(
+        "No pude procesar la imagen. Probá con otra (formato JPG o PNG).",
+      );
       setActiveSlot(null);
     } finally {
       setUploading(false);

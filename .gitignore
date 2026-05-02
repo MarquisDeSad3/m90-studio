@@ -38,3 +38,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# backups locales (procesamiento de imagenes, no van al repo)
+/.frames-bak/

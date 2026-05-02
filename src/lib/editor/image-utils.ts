@@ -87,25 +87,30 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 
 /**
  * Componer la imagen final del cover: dibuja todas las fotos del layout en
- * un solo canvas con el aspect del modelo. Output JPEG ~92% calidad.
+ * un solo canvas con las dimensiones reales del case en mm a la DPI dada.
+ * Output JPEG.
  *
- * Las fotos vienen ya cropeadas al aspect del slot, asi que se dibujan
- * directamente sin re-crop.
+ * Para print-ready usar dpi=300 (estandar de imprenta). El px exacto sale
+ * de mm × dpi / 25.4. iPhone 11/XR (75.7×150.9mm) @ 300dpi = 894×1782px.
  *
- * @param maxSide tamaño maximo del lado mayor (default 1800px) para mantener
- *                el archivo bajo ~600KB y compartible por WhatsApp.
+ * Las fotos ya vienen cropeadas al aspect del slot — drawImage las
+ * escala sin re-crop. La calidad final depende de la calidad del original.
+ *
+ * @param dpi resolucion de impresion (300 print, 150 preview).
+ * @param quality JPEG quality (0..1).
  */
 export async function composeFinalCover(
   slots: Array<{ x: number; y: number; w: number; h: number }>,
   photos: Array<{ slotIndex: number; src: string }>,
   modelAspect: { widthMm: number; heightMm: number },
-  maxSide = 1800,
+  opts: { dpi?: number; quality?: number } = {},
 ): Promise<{ dataUrl: string; blob: Blob; width: number; height: number }> {
-  const aspectRatio = modelAspect.widthMm / modelAspect.heightMm;
-  const isPortrait = modelAspect.heightMm >= modelAspect.widthMm;
+  const dpi = opts.dpi ?? 300;
+  const quality = opts.quality ?? 0.92;
+  const PX_PER_MM = dpi / 25.4;
 
-  const outH = isPortrait ? maxSide : Math.round(maxSide * (1 / aspectRatio));
-  const outW = isPortrait ? Math.round(maxSide * aspectRatio) : maxSide;
+  const outW = Math.round(modelAspect.widthMm * PX_PER_MM);
+  const outH = Math.round(modelAspect.heightMm * PX_PER_MM);
 
   const canvas = document.createElement("canvas");
   canvas.width = outW;
@@ -166,7 +171,7 @@ export async function composeFinalCover(
         reader.readAsDataURL(blob);
       },
       "image/jpeg",
-      0.92,
+      quality,
     );
   });
 }

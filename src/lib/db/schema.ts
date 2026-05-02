@@ -196,6 +196,17 @@ export const orders = pgTable(
     phoneModelName: text("phone_model_name").notNull(),
     layoutId: text("layout_id").notNull(),
     layoutName: text("layout_name").notNull(),
+    /** Dimensiones fisicas del case (snapshot al crear pedido — el catalogo
+        puede cambiar despues). Usadas para generar print-ready a 300 DPI. */
+    widthMm: integer("width_mm"),
+    heightMm: integer("height_mm"),
+    cornerRadiusMm: integer("corner_radius_mm"),
+    cameraBox: jsonb("camera_box").$type<{
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    } | null>(),
     status: orderStatusEnum("status").default("submitted").notNull(),
 
     // Computed/exported assets (S3-ish URLs once uploaded)

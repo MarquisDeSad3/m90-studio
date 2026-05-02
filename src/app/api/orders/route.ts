@@ -30,6 +30,21 @@ const orderInputSchema = z.object({
   phoneModelName: z.string().min(1).max(200),
   layoutId: z.string().min(1).max(100),
   layoutName: z.string().min(1).max(200),
+  /** Dimensiones fisicas del case en mm (snapshot del catalogo al momento
+      del pedido, asi el print-ready es exacto sin importar si cambian
+      despues). */
+  widthMm: z.number().int().positive().max(500).optional(),
+  heightMm: z.number().int().positive().max(500).optional(),
+  cornerRadiusMm: z.number().int().min(0).max(50).optional(),
+  cameraBox: z
+    .object({
+      x: z.number(),
+      y: z.number(),
+      w: z.number(),
+      h: z.number(),
+    })
+    .nullable()
+    .optional(),
   customerNotes: z.string().max(800).optional().default(""),
   customerPhone: z.string().max(40).optional(),
   customerName: z.string().max(120).optional(),
@@ -130,7 +145,8 @@ export async function POST(req: Request) {
     }
   }
 
-  // 2. Preview compuesto (opcional pero deseable)
+  // 2. Preview compuesto (low-DPI, para mostrar en admin) y print-ready
+  //    (300 DPI con dimensiones reales — esto es lo que M90 imprime).
   let previewUrl: string | null = null;
   const preview = form.get("preview");
   if (preview instanceof Blob && preview.size > 0) {
@@ -138,8 +154,18 @@ export async function POST(req: Request) {
       const saved = await saveImageFile(preview);
       previewUrl = saved.url;
     } catch (err) {
-      // No bloqueamos la orden si falla el preview, solo logueamos.
       console.warn("[orders] preview save failed:", err);
+    }
+  }
+
+  let printReadyUrl: string | null = null;
+  const printReady = form.get("printReady");
+  if (printReady instanceof Blob && printReady.size > 0) {
+    try {
+      const saved = await saveImageFile(printReady);
+      printReadyUrl = saved.url;
+    } catch (err) {
+      console.warn("[orders] print-ready save failed:", err);
     }
   }
 
@@ -158,8 +184,13 @@ export async function POST(req: Request) {
         phoneModelName: parsed.phoneModelName,
         layoutId: parsed.layoutId,
         layoutName: parsed.layoutName,
+        widthMm: parsed.widthMm ?? null,
+        heightMm: parsed.heightMm ?? null,
+        cornerRadiusMm: parsed.cornerRadiusMm ?? null,
+        cameraBox: parsed.cameraBox ?? null,
         status: "submitted",
         previewUrl,
+        printReadyUrl,
         customerNotes: parsed.customerNotes || null,
         priceCup: PRICE_CUP,
         submittedAt,

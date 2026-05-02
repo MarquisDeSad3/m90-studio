@@ -43,8 +43,16 @@ export function StepConfirm() {
   const [composeError, setComposeError] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [sharing, setSharing] = useState(false);
+  /** Cuando el pedido se creo en backend. UI cambia a pantalla de exito
+      con boton directo a WhatsApp (link real, no window.open — los popup
+      blockers mobile bloquean window.open despues de await fetch). */
+  const [submitted, setSubmitted] = useState<{
+    code: string;
+    waUrl: string;
+  } | null>(null);
 
-  // Componer al montar / cuando cambia algo
+  // Componer preview a 150 DPI (suficiente para mostrar). El print-ready
+  // 300 DPI lo generamos al submitear, NO al montar — mas barato.
   useEffect(() => {
     if (!layout) return;
     setComposing(true);
@@ -56,6 +64,7 @@ export function StepConfirm() {
         widthMm: model?.widthMm ?? 75,
         heightMm: model?.heightMm ?? 150,
       },
+      { dpi: 150, quality: 0.85 },
     )
       .then(setComposed)
       .catch(() => {
@@ -70,6 +79,58 @@ export function StepConfirm() {
         <p className="text-[14px] text-[color:var(--color-navy)]/65">
           Falta layout. Volvé a los pasos anteriores.
         </p>
+      </section>
+    );
+  }
+
+  /* ============================================================
+     PANTALLA DE ÉXITO — pedido ya creado, falta que el usuario
+     toque "Enviar por WhatsApp". El link <a target="_blank"> es
+     un click directo del usuario, asi NO lo bloquean popup blockers.
+     ============================================================ */
+  if (submitted) {
+    return (
+      <section className="mx-auto flex min-h-[calc(100vh-72px)] max-w-[640px] flex-col items-center justify-center px-5 py-12 text-center md:px-8">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#25D366]/15 ring-1 ring-[#25D366]/30 md:h-24 md:w-24">
+          <Check className="h-9 w-9 text-[#25D366] md:h-11 md:w-11" strokeWidth={2.5} />
+        </div>
+
+        <span className="mt-6 font-mono text-[10px] uppercase tracking-[0.32em] text-[color:var(--color-navy-500)]">
+          · Pedido creado
+        </span>
+        <h1 className="mt-3 font-display text-[clamp(40px,8vw,72px)] italic leading-[0.95] text-[color:var(--color-navy)]">
+          {submitted.code}
+        </h1>
+        <p className="mt-5 max-w-[44ch] text-[14px] leading-relaxed text-[color:var(--color-navy)]/70 md:text-[15px]">
+          Tocá el botón verde para confirmar tu pedido por WhatsApp. M90
+          recibe el mensaje con tu código y todas las fotos en alta calidad.
+        </p>
+
+        <a
+          href={submitted.waUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-8 inline-flex w-full items-center justify-center gap-3 rounded-full bg-[#25D366] px-7 py-5 text-[14px] font-semibold uppercase tracking-[0.22em] text-white shadow-[0_22px_50px_-18px_rgba(37,211,102,0.55)] transition-all hover:-translate-y-0.5 hover:shadow-[0_28px_60px_-18px_rgba(37,211,102,0.7)] active:scale-[0.98] sm:w-auto"
+        >
+          <MessageCircle className="h-5 w-5" />
+          <span>Enviar por WhatsApp</span>
+        </a>
+
+        <p className="mt-5 text-[11px] uppercase tracking-[0.22em] text-[color:var(--color-navy)]/45 md:text-[12px]">
+          Si no te abre, copiá el código y mandanos &quot;Hola M90, pedido{" "}
+          {submitted.code}&quot;.
+        </p>
+
+        <button
+          onClick={() => {
+            dispatch({ type: "RESET" });
+            setSubmitted(null);
+          }}
+          className="mt-10 inline-flex items-center gap-2 text-[12px] uppercase tracking-[0.22em] text-[color:var(--color-navy)]/55 hover:text-[color:var(--color-navy)]"
+        >
+          <RotateCcw className="h-3 w-3" />
+          Hacer otro pedido
+        </button>
       </section>
     );
   }
@@ -102,6 +163,18 @@ export function StepConfirm() {
     setComposeError(null);
 
     try {
+      // Generar print-ready a 300 DPI con las dimensiones reales en mm.
+      // Esto se sube como `printReady` y se imprime tal cual.
+      const printReady = await composeFinalCover(
+        layout.slots,
+        state.photos,
+        {
+          widthMm: model?.widthMm ?? 75,
+          heightMm: model?.heightMm ?? 150,
+        },
+        { dpi: 300, quality: 0.92 },
+      );
+
       // Construimos el FormData con originales + preview + datos del pedido
       const fd = new FormData();
       fd.append(
@@ -111,6 +184,18 @@ export function StepConfirm() {
           phoneModelName: model?.name ?? "Modelo no especificado",
           layoutId: layout.id,
           layoutName: layout.name,
+          // Dimensiones reales (snapshot del catalogo) para impresion exacta
+          widthMm: model?.widthMm,
+          heightMm: model?.heightMm,
+          cornerRadiusMm: model?.cornerRadiusMm,
+          cameraBox: model?.camera
+            ? {
+                x: model.camera[0],
+                y: model.camera[1],
+                w: model.camera[2],
+                h: model.camera[3],
+              }
+            : null,
           customerNotes: note.trim(),
           photos: state.photos.map((p) => ({
             slotIndex: p.slotIndex,
@@ -141,6 +226,7 @@ export function StepConfirm() {
         }
       }
       fd.append("preview", composed.blob, "preview.jpg");
+      fd.append("printReady", printReady.blob, "print-ready-300dpi.jpg");
 
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -156,9 +242,11 @@ export function StepConfirm() {
       const message = buildWhatsAppMessage(result.code, result.adminUrl);
       const url = whatsappUrl(message);
 
-      // Abrir WhatsApp con el mensaje pre-llenado. El cliente solo presiona
-      // "Enviar" — no se puede automatizar mas que esto sin WhatsApp Business API.
-      window.open(url, "_blank", "noopener,noreferrer");
+      // No abrimos WhatsApp con window.open: los popup blockers movil lo
+      // bloquean despues de un await fetch porque pierden la "user gesture
+      // chain". En su lugar mostramos pantalla de exito con un link <a>
+      // directo a wa.me — el click del usuario ahi SI abre WhatsApp.
+      setSubmitted({ code: result.code, waUrl: url });
     } catch (err) {
       console.error("[step-confirm] order submit failed:", err);
       setComposeError(

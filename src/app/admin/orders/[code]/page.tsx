@@ -64,6 +64,26 @@ export default async function AdminOrderDetailPage({ params }: Props) {
           <aside className="flex flex-col gap-4">
             <Card title="Modelo" value={order.phoneModelName} />
             <Card title="Layout" value={order.layoutName} />
+            {order.widthMm && order.heightMm && (
+              <Card
+                title="Dimensiones (impresion)"
+                value={
+                  <div className="space-y-1 text-[13px]">
+                    <div>
+                      {order.widthMm} × {order.heightMm} mm
+                      {order.cornerRadiusMm
+                        ? ` · radius ${order.cornerRadiusMm}mm`
+                        : ""}
+                    </div>
+                    <div className="font-mono text-[11px] text-[color:var(--color-navy)]/55">
+                      @ 300 DPI ={" "}
+                      {Math.round((order.widthMm * 300) / 25.4)} ×{" "}
+                      {Math.round((order.heightMm * 300) / 25.4)} px
+                    </div>
+                  </div>
+                }
+              />
+            )}
             <Card
               title="Precio (snapshot)"
               value={`$15 USD · ${order.priceCup} CUP`}
@@ -142,9 +162,21 @@ export default async function AdminOrderDetailPage({ params }: Props) {
           <div className="flex flex-col gap-8">
             {order.previewUrl && (
               <section>
-                <h2 className="mb-3 font-mono text-[11px] uppercase tracking-[0.3em] text-[color:var(--color-navy-500)]">
-                  · Preview compuesto
-                </h2>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h2 className="font-mono text-[11px] uppercase tracking-[0.3em] text-[color:var(--color-navy-500)]">
+                    · Preview compuesto
+                  </h2>
+                  {order.printReadyUrl && (
+                    <a
+                      href={order.printReadyUrl}
+                      download={`${order.code}-print-300dpi.jpg`}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--color-navy)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-cream-soft)] transition-all hover:-translate-y-0.5 md:text-[11px]"
+                    >
+                      <Download className="h-3 w-3" />
+                      Print-ready 300 DPI
+                    </a>
+                  )}
+                </div>
                 <a
                   href={order.previewUrl}
                   target="_blank"

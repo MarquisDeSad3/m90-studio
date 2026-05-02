@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import { useRef } from "react";
 
 /**
@@ -30,11 +30,21 @@ export function DiagonalGallery() {
     offset: ["start end", "end start"],
   });
 
-  // Parallax mas dinamico — recorrido amplio = mas sensacion de movimiento
-  const row1X = useTransform(scrollYProgress, [0, 1], ["-5%", "-55%"]);
-  const row2X = useTransform(scrollYProgress, [0, 1], ["-55%", "-5%"]);
-  const row3X = useTransform(scrollYProgress, [0, 1], ["-10%", "-60%"]);
-  const row4X = useTransform(scrollYProgress, [0, 1], ["-60%", "-10%"]);
+  // useSpring sobre scrollYProgress: agrega inercia, hace que la animacion se
+  // vea buttery aunque el scroll del usuario sea quebradizo en mobile.
+  // stiffness/damping ajustados para sensacion premium pero responsiva.
+  const smooth = useSpring(scrollYProgress, {
+    stiffness: 80,
+    damping: 22,
+    mass: 0.6,
+    restDelta: 0.0005,
+  });
+
+  // Parallax dinamico — recorrido amplio
+  const row1X = useTransform(smooth, [0, 1], ["-5%", "-60%"]);
+  const row2X = useTransform(smooth, [0, 1], ["-60%", "-5%"]);
+  const row3X = useTransform(smooth, [0, 1], ["-10%", "-65%"]);
+  const row4X = useTransform(smooth, [0, 1], ["-65%", "-10%"]);
 
   const rows = [
     { images: IMAGES.slice(0, 4), x: row1X },
@@ -62,12 +72,16 @@ export function DiagonalGallery() {
         </a>
       </div>
 
-      {/* Rotated diagonal grid — tiles bigger en mobile, espaciado tight */}
+      {/* Rotated diagonal grid. La rotacion va en un wrapper aparte y forzamos
+          GPU layer con transform3d + backface-visibility para que el browser
+          componga las filas independientes sin reflows en cada scroll. */}
       <div
         className="absolute inset-0 flex flex-col justify-center gap-1 md:gap-2"
         style={{
-          transform: "rotate(-10deg) scale(1.3)",
+          transform: "rotate(-10deg) scale(1.3) translateZ(0)",
           transformOrigin: "center center",
+          willChange: "transform",
+          backfaceVisibility: "hidden",
         }}
       >
         {rows.map((row, i) => (

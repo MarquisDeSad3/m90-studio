@@ -6,7 +6,8 @@ import {
   useMotionValueEvent,
   useTransform,
 } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowDownRight } from "lucide-react";
 
 /**
@@ -38,12 +39,56 @@ export function HeroFrames() {
     offset: ["start start", "end end"],
   });
 
-  // CTA + outline text aparecen progresivamente:
-  // - 0%–60%: outline + scroll indicator dominan (manos se acercan)
-  // - 60%–100%: CTA "Crea tu cover" se materializa al cerrarse el shot
-  const ctaOpacity = useTransform(scrollYProgress, [0.55, 0.85], [0, 1]);
-  const ctaY = useTransform(scrollYProgress, [0.55, 0.85], [40, 0]);
+  // CTA siempre visible. El outline text fade-out cuando el usuario llega al final.
   const outlineOpacity = useTransform(scrollYProgress, [0, 0.15, 0.7, 0.95], [1, 1, 1, 0.25]);
+
+  const router = useRouter();
+
+  /**
+   * Click handler del CTA: en lugar de navegar inmediato, scrollea por todo el
+   * hero (animacion completa de los frames) y al final navega a /disenar.
+   * Si el usuario ya scrolleo casi todo el hero, navega directo.
+   */
+  function handleCtaClick(e: MouseEvent<HTMLAnchorElement>) {
+    e.preventDefault();
+    const section = sectionRef.current;
+    if (!section) {
+      router.push("/disenar");
+      return;
+    }
+
+    const sectionTop = section.offsetTop;
+    const sectionEnd = sectionTop + section.offsetHeight - window.innerHeight;
+    const currentY = window.scrollY;
+    const remaining = sectionEnd - currentY;
+
+    // Si ya casi terminamos el hero, navegar directo
+    if (remaining < window.innerHeight * 0.3) {
+      router.push("/disenar");
+      return;
+    }
+
+    // Scrollear hasta el final del hero. Animacion manual con RAF para que
+    // funcione independiente de Lenis y se vea fluida.
+    const startY = currentY;
+    const distance = sectionEnd - startY;
+    const duration = Math.min(2400, Math.max(1200, distance * 0.6));
+    const startTime = performance.now();
+
+    function step(now: number) {
+      const t = Math.min(1, (now - startTime) / duration);
+      // ease-in-out cubic
+      const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      window.scrollTo(0, startY + distance * eased);
+      if (t < 1) {
+        requestAnimationFrame(step);
+      } else {
+        // Pequeno delay para que el usuario vea el ultimo frame antes de navegar
+        setTimeout(() => router.push("/disenar"), 350);
+      }
+    }
+    requestAnimationFrame(step);
+  }
 
   // Precarga TODOS los frames. Los primeros se cargan con prioridad alta
   // (fetchpriority high) para que el frame inicial se vea YA al montar.
@@ -183,11 +228,14 @@ export function HeroFrames() {
           <TypographyStack />
         </motion.div>
 
-        {/* CTA — aparece al final del scroll, cuando las manos se acercan */}
+        {/* CTA siempre visible. Click scrollea todo el hero y luego navega. */}
         <motion.a
           href="/disenar"
-          style={{ opacity: ctaOpacity, y: ctaY }}
-          className="group absolute inset-x-0 bottom-12 z-30 mx-auto inline-flex w-fit items-center gap-3 font-display text-[clamp(32px,5vw,68px)] italic leading-none text-[color:var(--color-navy)] transition-all hover:tracking-[0.01em] md:bottom-20"
+          onClick={handleCtaClick}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+          className="group absolute inset-x-0 bottom-10 z-30 mx-auto inline-flex w-fit items-center gap-3 font-display text-[clamp(32px,5vw,68px)] italic leading-none text-[color:var(--color-navy)] transition-all hover:tracking-[0.01em] md:bottom-20"
         >
           Crea tu cover
           <ArrowDownRight className="h-8 w-8 transition-transform group-hover:translate-x-1 group-hover:translate-y-1 md:h-12 md:w-12" />

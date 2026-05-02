@@ -66,13 +66,13 @@ export function Nav() {
             ))}
           </nav>
 
-          {/* CTA der — solo desktop */}
+          {/* CTA der — siempre visible (mobile + desktop) */}
           <a
             href="/disenar"
-            className="group relative hidden items-center gap-2 overflow-hidden rounded-full bg-[color:var(--color-cream-soft)] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--color-navy)] shadow-[0_12px_30px_-12px_rgba(247,235,200,0.4)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-14px_rgba(247,235,200,0.55)] md:inline-flex md:px-5 md:py-2.5 md:text-[12px]"
+            className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-[color:var(--color-cream-soft)] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--color-navy)] shadow-[0_12px_30px_-12px_rgba(247,235,200,0.4)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-14px_rgba(247,235,200,0.55)] md:px-5 md:py-2.5 md:text-[12px]"
           >
             <Sparkles className="hidden h-3.5 w-3.5 sm:block" />
-            <span>Crea tu cover</span>
+            <span>Comenzar</span>
             <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:rotate-12" />
           </a>
         </div>

@@ -32,6 +32,7 @@ export function HeroFrames() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const framesRef = useRef<HTMLImageElement[]>([]);
   const lastDrawnRef = useRef(-1);
+  const dprRef = useRef(1);
   const [loadedCount, setLoadedCount] = useState(0);
   const [firstFrameReady, setFirstFrameReady] = useState(false);
 
@@ -94,6 +95,7 @@ export function HeroFrames() {
 
     const resize = () => {
       const dpr = Math.min(2, window.devicePixelRatio || 1);
+      dprRef.current = dpr;
       const rect = canvas.getBoundingClientRect();
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
@@ -115,8 +117,9 @@ export function HeroFrames() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const cw = canvas.width / (window.devicePixelRatio || 1);
-    const ch = canvas.height / (window.devicePixelRatio || 1);
+    const dpr = dprRef.current || 1;
+    const cw = canvas.width / dpr;
+    const ch = canvas.height / dpr;
     const iw = img.naturalWidth;
     const ih = img.naturalHeight;
 

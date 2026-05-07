@@ -46,6 +46,34 @@ export function StepConfirm() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [touched, setTouched] = useState(false);
   const [sharing, setSharing] = useState(false);
+
+  // Precios runtime (admin los puede cambiar). Default a los seed iniciales
+  // si la API esta caida — el editor no debe quedar bloqueado por eso.
+  const [pricing, setPricing] = useState<{
+    normal: { usdCents: number; cup: number };
+    coated: { usdCents: number; cup: number };
+  }>({
+    normal: { usdCents: 700, cup: 2100 },
+    coated: { usdCents: 1500, cup: 4500 },
+  });
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/pricing", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!alive || !data) return;
+        if (data.normal && data.coated) setPricing(data);
+      })
+      .catch(() => {
+        // Sin red o DB caida: dejamos los defaults
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const currentPrice = pricing[state.coverType];
   /** Cuando el pedido se creo en backend. UI cambia a pantalla de exito
       con boton directo a WhatsApp (link real, no window.open — los popup
       blockers mobile bloquean window.open despues de await fetch). */
@@ -165,12 +193,18 @@ export function StepConfirm() {
   function buildWhatsAppMessage(orderCode: string, adminUrl: string): string {
     const siteOrigin =
       typeof window !== "undefined" ? window.location.origin : "";
+    const coverLabel =
+      state.coverType === "coated"
+        ? "Recubrimiento (placa blanca 2-en-1)"
+        : "Normal";
+    const usd = (currentPrice.usdCents / 100).toFixed(0);
     const lines = [
       `Hola M90, quiero pedir mi cover. Pedido ${orderCode}.`,
       "",
-      `· Modelo: ${model?.name ?? "(no especificado)"}`,
+      `· Modelo: ${state.modelDisplayName ?? model?.name ?? "(no especificado)"}`,
       `· Layout: ${layout!.count} foto${layout!.count > 1 ? "s" : ""} (${layout!.name.split(" · ")[1] ?? layout!.category})`,
-      `· Precio: $15 USD`,
+      `· Tipo: ${coverLabel}`,
+      `· Precio: $${usd} USD`,
     ];
     if (note.trim()) {
       lines.push("", "Notas:", note.trim());
@@ -203,7 +237,12 @@ export function StepConfirm() {
         "data",
         JSON.stringify({
           phoneModelSlug: model?.slug ?? "unknown",
-          phoneModelName: model?.name ?? "Modelo no especificado",
+          // Si el cliente eligio un alias específico (ej. "iPhone 13" dentro
+          // del grupo "iPhone 12 / 13 / 14"), mandamos ese — más informativo
+          // en WhatsApp y en el admin que el nombre del grupo.
+          phoneModelName:
+            state.modelDisplayName ?? model?.name ?? "Modelo no especificado",
+          coverType: state.coverType,
           layoutId: layout.id,
           layoutName: layout.name,
           // Dimensiones reales (snapshot del catalogo) para impresion exacta
@@ -223,12 +262,15 @@ export function StepConfirm() {
           customerNotes: note.trim(),
           photos: state.photos.map((p) => ({
             slotIndex: p.slotIndex,
-            transform: p.crop
+            // cropFraction (0..1) describe el recorte de forma indep de la
+            // resolucion. El server lo aplica al ORIGINAL en max calidad
+            // con sharp cuando compone el print-ready.
+            transform: p.cropFraction
               ? {
                   crop: { x: 0, y: 0 },
                   zoom: 1,
                   rotation: 0,
-                  aspect: undefined,
+                  cropFraction: p.cropFraction,
                 }
               : null,
           })),
@@ -248,8 +290,19 @@ export function StepConfirm() {
             `slot-${p.slotIndex}.jpg`,
           );
         }
+        // Cropped — version aplicada por el cliente. El server la guarda
+        // separada del original asi el admin tiene ambas: original sin
+        // tocar + recorte tal cual lo vio el cliente. Util como backup si
+        // el server compose falla, o para descargar exactamente lo que el
+        // cliente eligio.
+        fd.append(
+          `cropped_${p.slotIndex}`,
+          dataUrlToBlob(p.src),
+          `cropped-${p.slotIndex}.jpg`,
+        );
       }
-      // El mismo blob (200 DPI) sirve como preview Y print-ready
+      // El mismo blob (200 DPI) sirve como preview Y print-ready (por ahora;
+      // en server-side compose el printReady lo va a regenerar el backend).
       fd.append("preview", composed.blob, "preview.jpg");
       fd.append("printReady", composed.blob, "print-ready.jpg");
 
@@ -392,13 +445,26 @@ export function StepConfirm() {
 
         {/* Resumen + acciones */}
         <div className="flex flex-col gap-6">
+          {/* Selector de tipo de funda */}
+          <CoverTypeSelector
+            value={state.coverType}
+            normalUsd={pricing.normal.usdCents / 100}
+            coatedUsd={pricing.coated.usdCents / 100}
+            onChange={(t) =>
+              dispatch({ type: "SET_COVER_TYPE", coverType: t })
+            }
+          />
+
           {/* Order summary */}
           <div className="rounded-2xl border border-[color:var(--color-navy)]/12 bg-white p-5 md:p-6">
             <h2 className="font-mono text-[10px] uppercase tracking-[0.3em] text-[color:var(--color-navy-500)]">
               · Resumen del pedido
             </h2>
             <dl className="mt-4 space-y-3 text-[13px] md:text-[14px]">
-              <SummaryRow label="Modelo" value={model?.name ?? "—"} />
+              <SummaryRow
+                label="Modelo"
+                value={state.modelDisplayName ?? model?.name ?? "—"}
+              />
               <SummaryRow
                 label="Layout"
                 value={`${layout.count} foto${layout.count > 1 ? "s" : ""} · ${layout.name.split(" · ")[1] ?? layout.category}`}
@@ -407,12 +473,23 @@ export function StepConfirm() {
                 label="Fotos"
                 value={`${state.photos.length} / ${layout.count} cargadas`}
               />
+              <SummaryRow
+                label="Tipo"
+                value={
+                  state.coverType === "coated"
+                    ? "Recubrimiento (placa blanca)"
+                    : "Normal"
+                }
+              />
               <div className="flex items-baseline justify-between border-t border-[color:var(--color-navy)]/10 pt-3">
                 <dt className="text-[12px] uppercase tracking-[0.18em] text-[color:var(--color-navy)]/55 md:text-[13px]">
                   Total
                 </dt>
                 <dd className="font-display text-[28px] leading-none text-[color:var(--color-navy)] md:text-[32px]">
-                  $15 <span className="text-[12px] uppercase tracking-[0.18em] text-[color:var(--color-navy)]/55">USD</span>
+                  ${(currentPrice.usdCents / 100).toFixed(0)}{" "}
+                  <span className="text-[12px] uppercase tracking-[0.18em] text-[color:var(--color-navy)]/55">
+                    USD
+                  </span>
                 </dd>
               </div>
             </dl>
@@ -571,5 +648,246 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
         {value}
       </dd>
     </div>
+  );
+}
+
+function CoverTypeSelector({
+  value,
+  normalUsd,
+  coatedUsd,
+  onChange,
+}: {
+  value: "normal" | "coated";
+  normalUsd: number;
+  coatedUsd: number;
+  onChange: (t: "normal" | "coated") => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-[color:var(--color-navy)]/12 bg-white p-5 md:p-6">
+      <h2 className="font-mono text-[10px] uppercase tracking-[0.3em] text-[color:var(--color-navy-500)]">
+        · Tipo de funda
+      </h2>
+      <p className="mt-1 text-[12px] text-[color:var(--color-navy)]/55 md:text-[13px]">
+        Elegí cómo quieres que se imprima.
+      </p>
+
+      <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        <CoverOption
+          selected={value === "normal"}
+          onSelect={() => onChange("normal")}
+          title="Normal"
+          subtitle="Transferencia sobre TPU"
+          desc="Tinta directa sobre la funda flexible."
+          priceUsd={normalUsd}
+          mockup={<NormalMockup />}
+        />
+        <CoverOption
+          selected={value === "coated"}
+          onSelect={() => onChange("coated")}
+          title="Recubrimiento"
+          subtitle="Placa blanca 2-en-1"
+          desc="Imagen sobre lámina blanca de aluminio."
+          priceUsd={coatedUsd}
+          recommended
+          mockup={<CoatedMockup />}
+        />
+      </div>
+    </div>
+  );
+}
+
+function CoverOption({
+  selected,
+  onSelect,
+  title,
+  subtitle,
+  desc,
+  priceUsd,
+  recommended,
+  mockup,
+}: {
+  selected: boolean;
+  onSelect: () => void;
+  title: string;
+  subtitle: string;
+  desc: string;
+  priceUsd: number;
+  recommended?: boolean;
+  mockup: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={cn(
+        "group relative flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition-all",
+        selected
+          ? "border-[color:var(--color-navy)] bg-[color:var(--color-navy)]/[0.04] shadow-[0_10px_30px_-12px_rgba(1,27,83,0.32)]"
+          : "border-[color:var(--color-navy)]/12 hover:border-[color:var(--color-navy)]/30 active:scale-[0.99]",
+      )}
+    >
+      {recommended && (
+        <span className="absolute right-3 top-3 z-10 rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-emerald-800">
+          recom.
+        </span>
+      )}
+      <div className="flex w-full items-start gap-3">
+        <div className="flex h-[88px] w-[60px] flex-shrink-0 items-center justify-center rounded-lg bg-[color:var(--color-paper)]">
+          {mockup}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-display text-[16px] leading-tight text-[color:var(--color-navy)] md:text-[17px]">
+              {title}
+            </span>
+            {selected && (
+              <Check
+                className="h-3.5 w-3.5 text-[color:var(--color-navy)]"
+                strokeWidth={3}
+              />
+            )}
+          </div>
+          <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[color:var(--color-navy)]/55 md:text-[10px]">
+            {subtitle}
+          </span>
+          <span className="text-[12px] leading-snug text-[color:var(--color-navy)]/65 md:text-[13px]">
+            {desc}
+          </span>
+          <span className="mt-1 font-display text-[18px] leading-none text-[color:var(--color-navy)] md:text-[20px]">
+            ${priceUsd.toFixed(0)}{" "}
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-navy)]/55">
+              USD
+            </span>
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/** Mockup ilustrativo de funda Normal: TPU translúcido con foto colorida
+    visible a través (representando la impresión directa sobre el plástico). */
+function NormalMockup() {
+  return (
+    <svg
+      viewBox="0 0 60 88"
+      aria-hidden
+      className="h-full w-full"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <linearGradient id="m90-photo" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#fbcfe8" />
+          <stop offset="50%" stopColor="#a78bfa" />
+          <stop offset="100%" stopColor="#60a5fa" />
+        </linearGradient>
+        <linearGradient id="m90-tpu" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.4" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0.05" />
+        </linearGradient>
+      </defs>
+      {/* Foto del cliente "imprimida" sobre el TPU (representativa) */}
+      <rect x="3" y="3" width="54" height="82" rx="8" fill="url(#m90-photo)" />
+      {/* Capa TPU translúcida encima */}
+      <rect
+        x="3"
+        y="3"
+        width="54"
+        height="82"
+        rx="8"
+        fill="url(#m90-tpu)"
+        stroke="#0b1e4d"
+        strokeOpacity="0.18"
+        strokeWidth="0.6"
+      />
+      {/* Recorte cámara */}
+      <rect
+        x="9"
+        y="9"
+        width="18"
+        height="18"
+        rx="3"
+        fill="#0b1e4d"
+        fillOpacity="0.6"
+      />
+      {/* Lentes */}
+      <circle cx="14" cy="14" r="2" fill="#0b1e4d" fillOpacity="0.85" />
+      <circle cx="22" cy="14" r="2" fill="#0b1e4d" fillOpacity="0.85" />
+      <circle cx="14" cy="22" r="2" fill="#0b1e4d" fillOpacity="0.85" />
+    </svg>
+  );
+}
+
+/** Mockup ilustrativo de funda con Recubrimiento: TPU transparente con
+    placa blanca de aluminio encima (la 2-en-1, lo que muestra la foto del
+    proveedor: funda + placa de sublimación). */
+function CoatedMockup() {
+  return (
+    <svg
+      viewBox="0 0 60 88"
+      aria-hidden
+      className="h-full w-full"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <linearGradient id="m90-coated-plate" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#f1f3f5" />
+        </linearGradient>
+        <linearGradient id="m90-coated-shine" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="50%" stopColor="#ffffff" stopOpacity="0.6" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {/* TPU transparente atrás (apenas visible) */}
+      <rect
+        x="3"
+        y="3"
+        width="54"
+        height="82"
+        rx="8"
+        fill="#e2e8f0"
+        fillOpacity="0.4"
+        stroke="#0b1e4d"
+        strokeOpacity="0.12"
+        strokeWidth="0.6"
+      />
+      {/* Placa blanca de aluminio encima — característica del 2-en-1 */}
+      <rect
+        x="6"
+        y="14"
+        width="48"
+        height="68"
+        rx="5"
+        fill="url(#m90-coated-plate)"
+        stroke="#0b1e4d"
+        strokeOpacity="0.15"
+        strokeWidth="0.4"
+      />
+      {/* Brillo sutil para indicar superficie reflectiva */}
+      <rect
+        x="6"
+        y="14"
+        width="48"
+        height="68"
+        rx="5"
+        fill="url(#m90-coated-shine)"
+      />
+      {/* Recorte cámara (queda fuera de la placa, en la zona de TPU expuesto) */}
+      <rect
+        x="9"
+        y="6"
+        width="18"
+        height="18"
+        rx="3"
+        fill="#0b1e4d"
+        fillOpacity="0.6"
+      />
+      <circle cx="14" cy="11" r="2" fill="#0b1e4d" fillOpacity="0.85" />
+      <circle cx="22" cy="11" r="2" fill="#0b1e4d" fillOpacity="0.85" />
+      <circle cx="14" cy="19" r="2" fill="#0b1e4d" fillOpacity="0.85" />
+    </svg>
   );
 }

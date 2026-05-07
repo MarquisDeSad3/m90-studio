@@ -122,11 +122,14 @@ export function StepPhotos() {
     }
   }
 
-  async function onCropSave(croppedDataUrl: string) {
+  async function onCropSave(
+    croppedDataUrl: string,
+    cropFraction: { x: number; y: number; width: number; height: number },
+  ) {
     if (activeSlot == null) return;
     dispatch({
       type: "UPSERT_PHOTO",
-      photo: { slotIndex: activeSlot, src: croppedDataUrl },
+      photo: { slotIndex: activeSlot, src: croppedDataUrl, cropFraction },
     });
     setCropSrc(null);
     setActiveSlot(null);

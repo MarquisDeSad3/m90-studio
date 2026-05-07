@@ -1,5 +1,6 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { cookies } from "next/headers";
 
 /**
  * Auth admin minimo para el MVP: una sola password compartida
@@ -76,3 +77,12 @@ export function verifySessionToken(token: string | undefined): boolean {
 }
 
 export const ADMIN_COOKIE_NAME = COOKIE_NAME;
+
+/** Para usar en API routes (runtime nodejs). El middleware ya protege /admin/*
+    pero las rutas /api/admin/* quedan fuera del matcher, asi que las validamos
+    aqui. */
+export async function isAdminAuthenticated(): Promise<boolean> {
+  const store = await cookies();
+  const token = store.get(COOKIE_NAME)?.value;
+  return verifySessionToken(token);
+}

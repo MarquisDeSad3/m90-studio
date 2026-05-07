@@ -25,35 +25,56 @@ import {
 export type Photo = {
   /** Indice del slot del layout al que pertenece. */
   slotIndex: number;
-  /** dataURL (image/jpeg o image/webp) ya comprimido. */
+  /** dataURL (image/jpeg o image/webp) ya cropeado y comprimido. */
   src: string;
   /** Crop relativo al recuadro del slot. Opcional, se setea en Step 3. */
   crop?: { x: number; y: number; width: number; height: number };
+  /** Recorte en fracciones 0..1 sobre la imagen fuente (lo que el cliente
+      vio en el modal). Independiente de la resolucion: el server aplica
+      este crop al ORIGINAL en max calidad cuando compone el print-ready
+      con sharp, sin necesidad de saber las dimensiones del comprimido. */
+  cropFraction?: { x: number; y: number; width: number; height: number };
 };
 
 export type EditorStep = 1 | 2 | 3 | 4;
 
+export type CoverType = "normal" | "coated";
+
 export type EditorState = {
   step: EditorStep;
+  /** Slug del GRUPO de molde compartido (ej. iphone-12-13-14). Lo que el
+      backend usa para imprimir. */
   modelSlug: string | null;
+  /** Nombre exacto que el cliente vio y eligio (ej. "iPhone 13"). Puede
+      ser uno de los aliases del grupo. Se manda al backend al crear el
+      pedido y aparece en el WhatsApp + el admin para que quede claro qué
+      modelo específico es. */
+  modelDisplayName: string | null;
   layoutId: string | null;
   photos: Photo[];
+  /** Tipo de funda — determina el precio. Default 'normal' (la mas barata).
+      Cliente puede cambiar a 'coated' (placa blanca de aluminio 2-en-1)
+      en el step de confirm. */
+  coverType: CoverType;
 };
 
 type Action =
   | { type: "GO_TO_STEP"; step: EditorStep }
-  | { type: "SET_MODEL"; slug: string }
+  | { type: "SET_MODEL"; slug: string; displayName: string }
   | { type: "SET_LAYOUT"; id: string }
   | { type: "UPSERT_PHOTO"; photo: Photo }
   | { type: "REMOVE_PHOTO"; slotIndex: number }
+  | { type: "SET_COVER_TYPE"; coverType: CoverType }
   | { type: "RESET" }
   | { type: "HYDRATE"; state: EditorState };
 
 const INITIAL: EditorState = {
   step: 1,
   modelSlug: null,
+  modelDisplayName: null,
   layoutId: null,
   photos: [],
+  coverType: "normal",
 };
 
 function reducer(state: EditorState, action: Action): EditorState {
@@ -64,7 +85,11 @@ function reducer(state: EditorState, action: Action): EditorState {
       return { ...state, step: action.step };
     case "SET_MODEL":
       // Cambiar de modelo no resetea layout/fotos, el usuario puede iterar
-      return { ...state, modelSlug: action.slug };
+      return {
+        ...state,
+        modelSlug: action.slug,
+        modelDisplayName: action.displayName,
+      };
     case "SET_LAYOUT":
       // Cambiar layout invalida el grid de fotos previas
       return { ...state, layoutId: action.id, photos: [] };
@@ -81,6 +106,8 @@ function reducer(state: EditorState, action: Action): EditorState {
         ...state,
         photos: state.photos.filter((p) => p.slotIndex !== action.slotIndex),
       };
+    case "SET_COVER_TYPE":
+      return { ...state, coverType: action.coverType };
     case "RESET":
       return INITIAL;
     default:
@@ -119,8 +146,11 @@ export function EditorProvider({ children }: { children: ReactNode }) {
           state: {
             step: clampStep(parsed.step ?? 1),
             modelSlug: parsed.modelSlug ?? null,
+            modelDisplayName: parsed.modelDisplayName ?? null,
             layoutId: parsed.layoutId ?? null,
             photos: Array.isArray(parsed.photos) ? parsed.photos : [],
+            coverType:
+              parsed.coverType === "coated" ? "coated" : "normal",
           },
         });
       }

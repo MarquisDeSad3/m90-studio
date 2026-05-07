@@ -25,17 +25,29 @@ export function CropModal({
   initialCrop?: { x: number; y: number };
   initialZoom?: number;
   onCancel: () => void;
-  onSave: (cropped: string) => Promise<void> | void;
+  /** Recibe el dataURL recortado, el pixelCrop sobre la imagen `src` (uso
+      local) Y el cropFraction (x/y/w/h en 0..1). El cropFraction es lo que
+      el server usa porque es invariante a la resolucion de la fuente —
+      sharp lo escala al original a 300 DPI sin saber dimensiones. */
+  onSave: (
+    cropped: string,
+    cropFraction: { x: number; y: number; width: number; height: number },
+  ) => Promise<void> | void;
 }) {
   const [crop, setCrop] = useState(initialCrop ?? { x: 0, y: 0 });
   const [zoom, setZoom] = useState(initialZoom ?? 1);
   const [pixelCrop, setPixelCrop] = useState<Area | null>(null);
+  const [percentCrop, setPercentCrop] = useState<Area | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const onCropComplete = useCallback((_: Area, areaPixels: Area) => {
-    setPixelCrop(areaPixels);
-  }, []);
+  const onCropComplete = useCallback(
+    (areaPercent: Area, areaPixels: Area) => {
+      setPixelCrop(areaPixels);
+      setPercentCrop(areaPercent);
+    },
+    [],
+  );
 
   // ESC cancela
   useEffect(() => {
@@ -55,12 +67,19 @@ export function CropModal({
   }, []);
 
   async function handleSave() {
-    if (!pixelCrop) return;
+    if (!pixelCrop || !percentCrop) return;
     setSaving(true);
     setError(null);
     try {
       const out = await cropImageToDataUrl(src, pixelCrop);
-      await onSave(out);
+      // react-easy-crop devuelve percentages en 0..100; el server espera
+      // fracciones 0..1.
+      await onSave(out, {
+        x: percentCrop.x / 100,
+        y: percentCrop.y / 100,
+        width: percentCrop.width / 100,
+        height: percentCrop.height / 100,
+      });
     } catch {
       setError("No pude recortar la imagen. Probá de nuevo.");
       setSaving(false);

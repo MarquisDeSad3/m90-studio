@@ -1,9 +1,22 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { orders, orderPhotos, orderEvents } from "@/lib/db/schema";
-import { saveImageFile } from "@/lib/storage";
+import {
+  orders,
+  orderPhotos,
+  orderEvents,
+  coverPricing,
+} from "@/lib/db/schema";
+import {
+  diskPathFromFilename,
+  filenameFromUrl,
+  saveImageBuffer,
+  saveImageFile,
+} from "@/lib/storage";
+import { composeOrderPrintReady } from "@/lib/editor/compose-server";
+import { findLayout } from "@/lib/data/layouts";
+import { notifyAdminNewOrder } from "@/lib/notifications/telegram";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +33,16 @@ const photoSchema = z.object({
       zoom: z.number(),
       rotation: z.number(),
       aspect: z.number().optional(),
+      /** Recorte en fracciones 0..1 (independiente de la resolucion).
+          El server lo aplica al ORIGINAL en max calidad con sharp. */
+      cropFraction: z
+        .object({
+          x: z.number().min(0).max(1),
+          y: z.number().min(0).max(1),
+          width: z.number().min(0).max(1),
+          height: z.number().min(0).max(1),
+        })
+        .optional(),
     })
     .nullable()
     .optional(),
@@ -30,6 +53,9 @@ const orderInputSchema = z.object({
   phoneModelName: z.string().min(1).max(200),
   layoutId: z.string().min(1).max(100),
   layoutName: z.string().min(1).max(200),
+  /** Tipo de funda: 'normal' (transferencia simple) o 'coated' (placa
+      blanca de aluminio para sublimación). Determina el precio. */
+  coverType: z.enum(["normal", "coated"]),
   /** Dimensiones fisicas del case en mm (snapshot del catalogo). El catalogo
       tiene decimales (75.7mm, 150.9mm), asi que aceptamos number — luego
       redondeamos al insertar a la columna integer. */
@@ -67,8 +93,31 @@ const orderInputSchema = z.object({
    Helpers
    ============================================================ */
 
-const PRICE_CUP = 4500; // USD$15 ≈ ~4500 CUP (snapshot al crear orden)
+const FALLBACK_PRICE_CUP = 2100; // si la tabla cover_pricing esta vacia (no
+const FALLBACK_PRICE_USD_CENTS = 700; // deberia pasar despues de migration)
 const MAX_BODY_BYTES = 60 * 1024 * 1024; // 60MB total — aprox 9 fotos x 6MB
+
+/** Lee el precio actual del tipo de funda desde la tabla cover_pricing.
+    Si por alguna razon la fila no existe (DB sin seed), devuelve fallback. */
+async function getCoverPrice(
+  type: "normal" | "coated",
+): Promise<{ priceCup: number; priceUsdCents: number }> {
+  const [row] = await db
+    .select({
+      priceCup: coverPricing.priceCup,
+      priceUsdCents: coverPricing.priceUsdCents,
+    })
+    .from(coverPricing)
+    .where(eq(coverPricing.type, type))
+    .limit(1);
+  if (!row) {
+    return {
+      priceCup: FALLBACK_PRICE_CUP,
+      priceUsdCents: FALLBACK_PRICE_USD_CENTS,
+    };
+  }
+  return row;
+}
 
 function fail(status: number, message: string, code?: string) {
   return NextResponse.json({ error: message, code }, { status });
@@ -123,27 +172,51 @@ export async function POST(req: Request) {
     return fail(400, `Datos inválidos: ${msg}`, "VALIDATION");
   }
 
-  // 1. Subir cada foto original a disco. Si una falla, abortamos antes de
-  //    insertar nada en la DB para no dejar registros huérfanos.
+  // 1. Subir cada foto original + cropeada a disco. Si una falla, abortamos
+  //    antes de insertar nada en la DB para no dejar registros huérfanos.
+  //    - photo_<slot>: archivo original (max calidad). Lo manda el cliente
+  //      siempre que tenga la File en memoria (puede no tenerla si el user
+  //      recargo la pagina antes de submitear — fallback al cropeado).
+  //    - cropped_<slot>: version cropeada por el cliente. Se guarda aparte
+  //      asi el admin tiene ambas versiones para descargar / inspeccionar.
   type SavedPhoto = {
     slotIndex: number;
-    url: string;
+    originalUrl: string;
+    croppedUrl: string | null;
     sizeBytes: number;
     transform: NonNullable<z.infer<typeof photoSchema>["transform"]>;
   };
 
   const savedPhotos: SavedPhoto[] = [];
   for (const p of parsed.photos) {
-    const file = form.get(`photo_${p.slotIndex}`);
-    if (!(file instanceof Blob)) {
+    const originalFile = form.get(`photo_${p.slotIndex}`);
+    if (!(originalFile instanceof Blob)) {
       return fail(400, `Falta foto del slot ${p.slotIndex}`, "MISSING_PHOTO");
     }
     try {
-      const saved = await saveImageFile(file);
+      const savedOriginal = await saveImageFile(originalFile);
+
+      // Cropeada — opcional. Si no viene, no es fatal: se puede regenerar
+      // a partir del original + transform.pixelCrop con sharp.
+      let savedCroppedUrl: string | null = null;
+      const croppedFile = form.get(`cropped_${p.slotIndex}`);
+      if (croppedFile instanceof Blob && croppedFile.size > 0) {
+        try {
+          const savedCropped = await saveImageFile(croppedFile);
+          savedCroppedUrl = savedCropped.url;
+        } catch (err) {
+          console.warn(
+            `[orders] cropped slot ${p.slotIndex} save failed:`,
+            err,
+          );
+        }
+      }
+
       savedPhotos.push({
         slotIndex: p.slotIndex,
-        url: saved.url,
-        sizeBytes: saved.size,
+        originalUrl: savedOriginal.url,
+        croppedUrl: savedCroppedUrl,
+        sizeBytes: savedOriginal.size,
         transform:
           p.transform ?? { crop: { x: 0, y: 0 }, zoom: 1, rotation: 0 },
       });
@@ -181,9 +254,11 @@ export async function POST(req: Request) {
     }
   }
 
-  // 3. Generar código + insertar en DB
+  // 3. Generar código + insertar en DB. El precio sale de cover_pricing
+  //    (editable desde admin) y se snapshotea en el pedido.
   const code = await generateOrderCode();
   const submittedAt = new Date();
+  const price = await getCoverPrice(parsed.coverType);
 
   try {
     const [order] = await db
@@ -206,10 +281,12 @@ export async function POST(req: Request) {
             : null,
         cameraBox: parsed.cameraBox ?? null,
         status: "submitted",
+        coverType: parsed.coverType,
         previewUrl,
         printReadyUrl,
         customerNotes: parsed.customerNotes || null,
-        priceCup: PRICE_CUP,
+        priceCup: price.priceCup,
+        priceUsdCents: price.priceUsdCents,
         submittedAt,
       })
       .returning();
@@ -223,7 +300,8 @@ export async function POST(req: Request) {
         savedPhotos.map((p) => ({
           orderId: order.id,
           slotIndex: p.slotIndex,
-          originalUrl: p.url,
+          originalUrl: p.originalUrl,
+          croppedUrl: p.croppedUrl,
           transform: p.transform,
           sizeBytes: p.sizeBytes,
         })),
@@ -238,7 +316,70 @@ export async function POST(req: Request) {
       note: "Pedido creado por el cliente",
     });
 
+    // 4. Server-side compose del print-ready a 300 DPI usando los
+    //    ORIGINALES (max calidad). Reemplaza el printReady que mando el
+    //    cliente. Si falla por cualquier razon, dejamos el printReady
+    //    del cliente como fallback — el pedido ya esta confirmado.
+    try {
+      const layout = findLayout(parsed.layoutId);
+      if (
+        layout &&
+        parsed.widthMm != null &&
+        parsed.heightMm != null &&
+        savedPhotos.length > 0
+      ) {
+        const composed = await composeOrderPrintReady({
+          outWidthMm: parsed.widthMm,
+          outHeightMm: parsed.heightMm,
+          slots: layout.slots,
+          photos: savedPhotos.map((p) => {
+            const filename = filenameFromUrl(p.originalUrl) ?? "";
+            return {
+              slotIndex: p.slotIndex,
+              originalPath: diskPathFromFilename(filename),
+              cropFraction: p.transform?.cropFraction,
+            };
+          }),
+          dpi: 300,
+          quality: 92,
+        });
+        const saved = await saveImageBuffer(composed.buffer, "jpg");
+        await db
+          .update(orders)
+          .set({ printReadyUrl: saved.url, updatedAt: new Date() })
+          .where(eq(orders.id, order.id));
+      }
+    } catch (err) {
+      console.error("[orders] server-side compose failed:", err);
+      // Fallback: dejamos el printReadyUrl del cliente. El admin puede
+      // re-componer manualmente con el endpoint de regenerate (TODO).
+    }
+
     const adminPath = `/admin/orders/${order.code}`;
+
+    // 5. Notificación a Telegram al admin de M90. Nunca bloquea: si el bot
+    //    no está configurado o la API falla, solo se loggea. El cliente ya
+    //    tiene el pedido creado y va a mandar WhatsApp igual.
+    notifyAdminNewOrder({
+      code: order.code,
+      customerName: parsed.customerName,
+      customerPhone: parsed.customerPhone,
+      phoneModelName: parsed.phoneModelName,
+      layoutLabel: parsed.layoutName,
+      coverType: parsed.coverType,
+      priceUsd: price.priceUsdCents / 100,
+      priceCup: price.priceCup,
+      photoCount: savedPhotos.length,
+      customerNotes: parsed.customerNotes,
+      adminUrl: adminPath,
+      previewUrl,
+      siteOrigin: process.env.NEXT_PUBLIC_SITE_URL ?? null,
+    })
+      .then((r) => {
+        if (!r.ok) console.warn("[orders] telegram notify failed:", r.reason);
+      })
+      .catch((err) => console.warn("[orders] telegram notify error:", err));
+
     return NextResponse.json(
       {
         code: order.code,

@@ -23,6 +23,39 @@ export async function ensureUploadDir() {
   await mkdir(UPLOAD_DIR, { recursive: true });
 }
 
+/** Path absoluto en disco a partir del filename guardado. */
+export function diskPathFromFilename(filename: string): string {
+  return path.join(UPLOAD_DIR, filename);
+}
+
+/** Filename a partir de la URL `/api/files/<name>` (lo que guardamos en DB). */
+export function filenameFromUrl(url: string): string | null {
+  const m = url.match(/\/api\/files\/([^/?#]+)$/);
+  return m ? m[1] : null;
+}
+
+/** Guarda un Buffer (no un Blob) — usado por el server-side compose con
+ *  sharp para volcar el print-ready directamente sin pasar por File. */
+export async function saveImageBuffer(
+  buf: Buffer,
+  ext: "jpg" | "png" | "webp" = "jpg",
+): Promise<{ filename: string; url: string; size: number }> {
+  if (buf.byteLength > MAX_FILE_BYTES) {
+    throw new Error(
+      `Buffer demasiado pesado (${buf.byteLength} bytes, max ${MAX_FILE_BYTES})`,
+    );
+  }
+  await ensureUploadDir();
+  const filename = `${randomBytes(16).toString("hex")}.${ext}`;
+  const fullPath = path.join(UPLOAD_DIR, filename);
+  await writeFile(fullPath, buf);
+  return {
+    filename,
+    url: `/api/files/${filename}`,
+    size: buf.byteLength,
+  };
+}
+
 /**
  * Guarda un Blob/File en disco. Devuelve el filename random para servirlo
  * via /api/files/[name]. El filename es 32 hex chars + extension.

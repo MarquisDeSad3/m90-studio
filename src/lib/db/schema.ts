@@ -36,6 +36,13 @@ export const phoneBrandEnum = pgEnum("phone_brand", [
   "xiaomi",
   "huawei",
   "motorola",
+  "lg",
+  "nokia",
+  "zte",
+  "pixel",
+  "oneplus",
+  "alcatel",
+  "blu",
   "other",
 ])
 
@@ -54,6 +61,16 @@ export const adminRoleEnum = pgEnum("admin_role", [
   "manager",
   "staff",
 ])
+
+export const coverTypeEnum = pgEnum("cover_type", [
+  "normal",   // funda con transferencia térmica básica
+  "coated",   // funda 2 en 1: transferencia + lámina blanca de aluminio
+])
+
+export const telegramSubscriberStatusEnum = pgEnum(
+  "telegram_subscriber_status",
+  ["pending", "approved", "rejected"],
+)
 
 /* ============================================================
    PHONE MODELS — catalog of supported devices.
@@ -208,6 +225,10 @@ export const orders = pgTable(
       h: number;
     } | null>(),
     status: orderStatusEnum("status").default("submitted").notNull(),
+    /** Tipo de funda elegido por el cliente — normal o con recubrimiento
+        2-en-1 (placa blanca de aluminio para sublimación). El precio
+        depende de este campo + la tabla cover_pricing. */
+    coverType: coverTypeEnum("cover_type").default("normal").notNull(),
 
     // Computed/exported assets (S3-ish URLs once uploaded)
     previewUrl: text("preview_url"),       // small JPG/PNG of the mockup
@@ -219,6 +240,10 @@ export const orders = pgTable(
 
     // Pricing snapshot at order time (CUP)
     priceCup: integer("price_cup").notNull(),
+    /** Precio en USD cents (e.g. 700 = $7.00). Snapshot al crear pedido
+        igual que priceCup, asi sabemos exactamente cuanto pago el cliente
+        si despues subimos los precios en cover_pricing. */
+    priceUsdCents: integer("price_usd_cents").default(700).notNull(),
 
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
     confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
@@ -243,15 +268,33 @@ export const orderPhotos = pgTable(
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
     slotIndex: integer("slot_index").notNull(), // 0..N-1
+    /** Imagen original SIN tocar: lo que el cliente subio en max calidad. */
     originalUrl: text("original_url").notNull(),
+    /** Imagen cropeada por el cliente — lo que vio en pantalla. El admin
+        puede descargarla aparte del original. Tambien sirve de fallback si
+        el server compose con sharp falla. Nullable por compat con pedidos
+        viejos hechos antes del feature. */
+    croppedUrl: text("cropped_url"),
     thumbnailUrl: text("thumbnail_url"),
-    // Crop/zoom/rotate state from react-easy-crop
+    // Crop/zoom/rotate state from react-easy-crop. `pixelCrop` es el
+    // recorte en pixels sobre la version comprimida que el cliente vio
+    // (sirve para reproducir en server con sharp). Opcional para pedidos
+    // antiguos.
     transform: jsonb("transform")
       .$type<{
         crop: { x: number; y: number }
         zoom: number
         rotation: number
         aspect?: number
+        /** Recorte en fracciones 0..1. Aplicable al ORIGINAL (sin escala)
+            por sharp a la hora de componer print-ready. Opcional para
+            pedidos viejos (pre-feature). */
+        cropFraction?: {
+          x: number
+          y: number
+          width: number
+          height: number
+        }
       }>()
       .notNull(),
     widthPx: integer("width_px"),
@@ -261,6 +304,54 @@ export const orderPhotos = pgTable(
   },
   (t) => [index("order_photos_order_idx").on(t.orderId)],
 )
+
+/* ============================================================
+   TELEGRAM_SUBSCRIBERS — quién recibe notificaciones de pedidos.
+   Cuando alguien manda /start al bot lo insertamos como `pending`
+   y el admin lo aprueba/rechaza desde el panel. Solo los `approved`
+   reciben los mensajes de pedido. Esto reemplaza la env var
+   TELEGRAM_CHAT_ID (que se mantiene como fallback).
+   ============================================================ */
+
+export const telegramSubscribers = pgTable(
+  "telegram_subscribers",
+  {
+    /** chat_id en Telegram. Lo guardamos como text para evitar issues
+        con bigint/JS Number (los chat_ids de grupo pueden ser negativos
+        y largos). */
+    chatId: text("chat_id").primaryKey(),
+    username: text("username"),
+    firstName: text("first_name"),
+    lastName: text("last_name"),
+    status: telegramSubscriberStatusEnum("status")
+      .default("pending")
+      .notNull(),
+    requestedAt: timestamp("requested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    rejectedAt: timestamp("rejected_at", { withTimezone: true }),
+  },
+  (t) => [index("telegram_subscribers_status_idx").on(t.status)],
+)
+
+/* ============================================================
+   COVER_PRICING — precios por tipo de funda, editables runtime
+   desde el panel de admin. UNA fila por tipo (clave primaria es
+   el enum), siempre 2 filas: 'normal' + 'coated'.
+   El precio aplicado al pedido se guarda como snapshot en
+   `orders.priceCup` y `orders.priceUsdCents`.
+   ============================================================ */
+
+export const coverPricing = pgTable("cover_pricing", {
+  type: coverTypeEnum("type").primaryKey(),
+  /** USD en cents (700 = $7.00). */
+  priceUsdCents: integer("price_usd_cents").notNull(),
+  priceCup: integer("price_cup").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
 
 /* Status changes log so admin (and user) can see history. */
 export const orderEvents = pgTable(
@@ -341,3 +432,7 @@ export type Order = typeof orders.$inferSelect
 export type NewOrder = typeof orders.$inferInsert
 export type PhoneModel = typeof phoneModels.$inferSelect
 export type OrderPhoto = typeof orderPhotos.$inferSelect
+export type CoverPricing = typeof coverPricing.$inferSelect
+export type CoverType = "normal" | "coated"
+export type TelegramSubscriber = typeof telegramSubscribers.$inferSelect
+export type TelegramSubscriberStatus = "pending" | "approved" | "rejected"

@@ -10,6 +10,7 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import { useEditor, usePhoneModel } from "@/lib/editor/store";
+import { useConfirm } from "@/components/ui/confirm-provider";
 import { findLayout } from "@/lib/data/layouts";
 import { getPrintDimensions } from "@/lib/data/phone-models";
 import { composeFinalCover } from "@/lib/editor/image-utils";
@@ -29,6 +30,7 @@ type Composed = {
 
 export function StepConfirm() {
   const { state, dispatch } = useEditor();
+  const confirm = useConfirm();
 
   const layout = useMemo(
     () => (state.layoutId ? findLayout(state.layoutId) : null),
@@ -368,13 +370,15 @@ export function StepConfirm() {
     document.body.removeChild(link);
   }
 
-  function handleReset() {
-    if (
-      !window.confirm(
-        "¿Empezar de cero? Vas a perder el modelo, el layout y todas las fotos cargadas.",
-      )
-    )
-      return;
+  async function handleReset() {
+    const ok = await confirm({
+      title: "¿Empezar de cero?",
+      message:
+        "Vas a perder el modelo, el layout y todas las fotos cargadas.",
+      confirmLabel: "Empezar de cero",
+      variant: "danger",
+    });
+    if (!ok) return;
     dispatch({ type: "RESET" });
   }
 

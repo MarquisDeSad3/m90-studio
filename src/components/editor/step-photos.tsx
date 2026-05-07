@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Loader2, Trash2, Upload } from "lucide-react";
 import { useEditor, usePhoneModel } from "@/lib/editor/store";
+import { useConfirm } from "@/components/ui/confirm-provider";
 import { findLayout } from "@/lib/data/layouts";
 import { getPrintDimensions } from "@/lib/data/phone-models";
 import { compressImageFile } from "@/lib/editor/image-utils";
@@ -17,6 +18,7 @@ import { NextCta } from "./next-cta";
 
 export function StepPhotos() {
   const { state, dispatch, goNext } = useEditor();
+  const confirm = useConfirm();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
@@ -141,8 +143,14 @@ export function StepPhotos() {
     setActiveSlot(null);
   }
 
-  function clearAll() {
-    if (!confirm("¿Borrar todas las fotos cargadas?")) return;
+  async function clearAll() {
+    const ok = await confirm({
+      title: "¿Borrar todas las fotos cargadas?",
+      message: "Vas a tener que volver a subirlas.",
+      confirmLabel: "Borrar todo",
+      variant: "danger",
+    });
+    if (!ok) return;
     state.photos.forEach((p) =>
       dispatch({ type: "REMOVE_PHOTO", slotIndex: p.slotIndex }),
     );

@@ -1,5 +1,6 @@
 import {
   Bell,
+  Contact,
   DollarSign,
   Package,
   Send,
@@ -45,6 +46,12 @@ export const ADMIN_NAV: AdminNavItem[] = [
     icon: Package,
     matcher: startsWith("/admin/pedidos"),
     badgeKey: "ordersPending",
+  },
+  {
+    href: "/admin/clientes",
+    label: "Clientes",
+    icon: Contact,
+    matcher: startsWith("/admin/clientes"),
   },
   {
     href: "/admin/telegram",

@@ -11,6 +11,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useConfirm } from "@/components/ui/confirm-provider";
 
 type Role = "owner" | "manager" | "staff";
 
@@ -44,6 +45,7 @@ export function AdminUsersManager({
   currentAdminId: string;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -108,7 +110,13 @@ export function AdminUsersManager({
   }
 
   async function deleteUser(id: string) {
-    if (!confirm("¿Borrar este usuario? No va a poder loguearse más.")) return;
+    const ok = await confirm({
+      title: "¿Borrar este usuario?",
+      message: "No va a poder loguearse más al admin.",
+      confirmLabel: "Borrar usuario",
+      variant: "danger",
+    });
+    if (!ok) return;
     setBusyId(id);
     setError(null);
     try {

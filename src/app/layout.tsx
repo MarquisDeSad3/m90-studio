@@ -4,6 +4,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { SmoothScroll } from "@/components/smooth-scroll";
 import { Preloader } from "@/components/preloader";
+import { ConfirmProvider } from "@/components/ui/confirm-provider";
 import "./globals.css";
 
 const familiarPro = localFont({
@@ -70,7 +71,7 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <Preloader />
         <SmoothScroll />
-        {children}
+        <ConfirmProvider>{children}</ConfirmProvider>
       </body>
     </html>
   );

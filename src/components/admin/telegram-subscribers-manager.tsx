@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Loader2, Trash2, X } from "lucide-react";
+import { useConfirm } from "@/components/ui/confirm-provider";
 
 type SubscriberStatus = "pending" | "approved" | "rejected";
 
@@ -35,6 +36,7 @@ export function TelegramSubscribersManager({
   initial: Subscriber[];
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +45,13 @@ export function TelegramSubscribersManager({
     kind: "approve" | "reject" | "delete",
   ) {
     if (kind === "delete") {
-      if (!confirm("¿Quitar este suscriptor? Puede volver a hacer /start si quiere reaplicar.")) return;
+      const ok = await confirm({
+        title: "¿Quitar este suscriptor?",
+        message: "Puede volver a hacer /start si quiere reaplicar.",
+        confirmLabel: "Quitar",
+        variant: "danger",
+      });
+      if (!ok) return;
     }
     setBusy(`${chatId}:${kind}`);
     setError(null);

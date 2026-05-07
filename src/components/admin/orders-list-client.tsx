@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/confirm-provider";
 
 type Status =
   | "draft"
@@ -125,6 +126,7 @@ export function OrdersListClient({ items }: { items: OrderRow[] }) {
 
 function OrderItem({ order }: { order: OrderRow }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [isPending, startTransition] = useTransition();
   const [busy, setBusy] = useState<Status | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -236,10 +238,15 @@ function OrderItem({ order }: { order: OrderRow }) {
               label="Cancelar"
               loading={busy === "cancelled"}
               disabled={busy !== null || isPending}
-              onClick={() => {
-                if (confirm(`¿Cancelar el pedido ${order.code}?`)) {
-                  changeStatus("cancelled");
-                }
+              onClick={async () => {
+                const ok = await confirm({
+                  title: `¿Cancelar el pedido ${order.code}?`,
+                  message: "El pedido queda en estado cancelado.",
+                  confirmLabel: "Cancelar pedido",
+                  cancelLabel: "Volver",
+                  variant: "danger",
+                });
+                if (ok) changeStatus("cancelled");
               }}
             />
           )}

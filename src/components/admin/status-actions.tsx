@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Loader2, Check, XCircle, RotateCcw } from "lucide-react";
+import { useConfirm } from "@/components/ui/confirm-provider";
 
 type Status =
   | "draft"
@@ -28,6 +29,7 @@ export function StatusActions({
   status: Status;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [isPending, startTransition] = useTransition();
   const [busy, setBusy] = useState<Status | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -118,8 +120,15 @@ export function StatusActions({
         {canCancel && (
           <button
             type="button"
-            onClick={() => {
-              if (confirm("¿Cancelar este pedido?")) move("cancelled");
+            onClick={async () => {
+              const ok = await confirm({
+                title: `¿Cancelar el pedido ${code}?`,
+                message: "El pedido queda en estado cancelado.",
+                confirmLabel: "Cancelar pedido",
+                cancelLabel: "Volver",
+                variant: "danger",
+              });
+              if (ok) move("cancelled");
             }}
             disabled={busy !== null || isPending}
             className="inline-flex items-center justify-center gap-2 rounded-full border border-red-200 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"

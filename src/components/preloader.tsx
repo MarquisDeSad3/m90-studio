@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { Logo } from "./logo";
 
 /**
- * Preloader real: precarga los 96 hero-frames (~3MB) en paralelo y solo
- * desaparece cuando están todos cargados. Muestra % real para que el usuario
- * en Cuba sepa que está progresando aunque la conexión sea lenta.
+ * Preloader real: precarga los hero-frames (~1.3MB) en paralelo y solo
+ * desaparece cuando los críticos están cargados. Muestra % real para que
+ * el usuario en Cuba sepa que está progresando aunque la conexión sea lenta.
  *
  * - SSR-friendly: renderiza al 0% antes de hidratar (sin flash).
  * - Cache hits: si los frames ya están en cache, termina al instante.
@@ -15,7 +15,7 @@ import { Logo } from "./logo";
  *   sobre un canvas vacío.
  */
 
-const FRAME_COUNT = 96;
+const FRAME_COUNT = 57;
 /**
  * CRITICAL_FRAMES son los unicos que bloquean al usuario. El resto carga en
  * background mientras la pagina ya es interactiva. Crucial para Cuba: con

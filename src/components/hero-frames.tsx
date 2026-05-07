@@ -14,16 +14,17 @@ import { scrollHeroThenRun } from "@/lib/scroll-hero";
 /**
  * HeroFrames — scroll-driven canvas frame swap.
  *
- * 96 fotogramas WebP precargados en memoria. La sección dura 200vh: dentro
+ * 57 fotogramas WebP precargados en memoria (animación Arcane/Fortiche
+ * @ 24fps, frames nativos sin interpolar). La sección dura 200vh: dentro
  * hay un sticky h-screen que mantiene el canvas pegado, y al scrollear
- * mapeamos scrollYProgress (0→1) al índice del frame (0→95).
+ * mapeamos scrollYProgress (0→1) al índice del frame (0→56).
  *
  * Overlay encima del canvas: outline "M90 / STUDIO" navy + CTA inferior.
  * Mientras los frames cargan se muestra el primer frame como fallback
  * para que no haya flash blanco.
  */
 
-const FRAME_COUNT = 96;
+const FRAME_COUNT = 57;
 const FRAME_PATH = (i: number) =>
   `/hero-frames/${String(i).padStart(3, "0")}.webp`;
 

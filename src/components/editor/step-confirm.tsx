@@ -18,6 +18,7 @@ import {
   getOriginalFile,
 } from "@/lib/editor/original-photos";
 import { cn, whatsappUrl } from "@/lib/utils";
+import { CoverPreview } from "@/components/cover-preview";
 
 type Composed = {
   dataUrl: string;
@@ -394,52 +395,57 @@ export function StepConfirm() {
       </div>
 
       <div className="grid gap-8 md:grid-cols-[auto_1fr] md:gap-10">
-        {/* Preview de la imagen final */}
+        {/* Preview de la funda con la foto integrada */}
         <div className="flex flex-col items-center gap-3">
-          <div
-            className="relative flex-shrink-0 overflow-hidden bg-[color:var(--color-navy)]/8 shadow-[0_30px_80px_-30px_rgba(1,27,83,0.5)]"
-            style={{
-              width: previewW,
-              height: previewMaxH,
-              borderRadius: cornerRadius,
-            }}
-          >
-            {composing && (
-              <div className="absolute inset-0 flex items-center justify-center bg-[color:var(--color-cream-soft)]">
-                <Loader2 className="h-6 w-6 animate-spin text-[color:var(--color-navy)]/40" />
-              </div>
-            )}
-            {composed && !composing && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={composed.dataUrl}
-                alt="Preview del cover"
-                draggable={false}
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-            )}
-            {composeError && (
-              <div className="absolute inset-0 flex items-center justify-center bg-red-50 px-4 text-center text-[12px] text-red-700">
-                {composeError}
-              </div>
-            )}
-            {/* Camera bbox overlay (preview) */}
-            {model?.camera && composed && (
-              <div
-                aria-hidden
-                className="pointer-events-none absolute rounded-[3px] bg-[color:var(--color-navy)]/65 ring-1 ring-[color:var(--color-cream-soft)]/40"
-                style={{
-                  left: `${(model.camera[0] / model.widthMm) * 100}%`,
-                  top: `${(model.camera[1] / model.heightMm) * 100}%`,
-                  width: `${(model.camera[2] / model.widthMm) * 100}%`,
-                  height: `${(model.camera[3] / model.heightMm) * 100}%`,
-                }}
-              />
-            )}
-          </div>
+          {composing ? (
+            <div
+              className="relative grid flex-shrink-0 place-items-center bg-[color:var(--color-cream-soft)]"
+              style={{
+                width: previewW,
+                height: previewMaxH,
+                borderRadius: cornerRadius,
+              }}
+            >
+              <Loader2 className="h-6 w-6 animate-spin text-[color:var(--color-navy)]/40" />
+            </div>
+          ) : composeError ? (
+            <div
+              className="grid flex-shrink-0 place-items-center bg-red-50 px-4 text-center text-[12px] text-red-700"
+              style={{
+                width: previewW,
+                height: previewMaxH,
+                borderRadius: cornerRadius,
+              }}
+            >
+              {composeError}
+            </div>
+          ) : (
+            <CoverPreview
+              photoUrl={composed?.dataUrl ?? null}
+              coverType={state.coverType}
+              model={
+                model
+                  ? {
+                      widthMm: model.widthMm,
+                      heightMm: model.heightMm,
+                      cornerRadiusMm: model.cornerRadiusMm,
+                      camera: model.camera,
+                      name: model.name,
+                    }
+                  : {
+                      widthMm: 75,
+                      heightMm: 150,
+                      cornerRadiusMm: 12,
+                      camera: null,
+                    }
+              }
+              height={previewMaxH}
+            />
+          )}
 
           <p className="font-mono text-[9px] uppercase tracking-[0.3em] text-[color:var(--color-navy)]/45 md:text-[10px]">
-            Preview · final {composed && `· ${composed.width}×${composed.height}px`}
+            {state.coverType === "coated" ? "Funda recubrimiento" : "Funda normal"}{" "}
+            {composed && `· ${composed.width}×${composed.height}px`}
           </p>
         </div>
 

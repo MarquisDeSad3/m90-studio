@@ -4,8 +4,10 @@ import { eq, asc, desc } from "drizzle-orm";
 import { ArrowLeft, Download, History, Phone, User } from "lucide-react";
 import { db } from "@/lib/db";
 import { orders, orderPhotos, orderEvents } from "@/lib/db/schema";
+import { findPhoneModel } from "@/lib/data/phone-models";
 import { StatusActions } from "@/components/admin/status-actions";
 import { AdminNotesEditor } from "@/components/admin/admin-notes-editor";
+import { CoverPreview } from "@/components/cover-preview";
 
 export const dynamic = "force-dynamic";
 
@@ -196,39 +198,73 @@ export default async function AdminOrderDetailPage({ params }: Props) {
         </aside>
 
         <div className="flex flex-col gap-6 md:gap-8">
-          {order.previewUrl && (
-            <section>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="font-mono text-[11px] uppercase tracking-[0.3em] text-[color:var(--color-navy-500)]">
-                  · Preview compuesto
-                </h2>
-                {order.printReadyUrl && (
-                  <a
-                    href={order.printReadyUrl}
-                    download={`${order.code}-print-300dpi.jpg`}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--color-navy)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-cream-soft)] transition-all hover:-translate-y-0.5 md:text-[11px]"
-                  >
-                    <Download className="h-3 w-3" />
-                    <span className="hidden sm:inline">Print-ready 300 DPI</span>
-                    <span className="sm:hidden">Print 300 DPI</span>
-                  </a>
-                )}
-              </div>
-              <a
-                href={order.previewUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="block overflow-hidden rounded-3xl border border-[color:var(--color-navy)]/12 bg-white"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={order.previewUrl}
-                  alt={`Preview ${order.code}`}
-                  className="block w-full max-w-[480px] object-contain"
-                />
-              </a>
-            </section>
-          )}
+          {order.previewUrl &&
+            (() => {
+              const phoneModel = findPhoneModel(order.phoneModelSlug);
+              const fallbackModel = {
+                widthMm: order.widthMm ?? 75,
+                heightMm: order.heightMm ?? 150,
+                cornerRadiusMm: order.cornerRadiusMm ?? 12,
+                camera: order.cameraBox
+                  ? ([
+                      order.cameraBox.x,
+                      order.cameraBox.y,
+                      order.cameraBox.w,
+                      order.cameraBox.h,
+                    ] as [number, number, number, number])
+                  : null,
+                name: order.phoneModelName,
+              };
+              const previewModel = phoneModel
+                ? {
+                    widthMm: phoneModel.widthMm,
+                    heightMm: phoneModel.heightMm,
+                    cornerRadiusMm: phoneModel.cornerRadiusMm,
+                    camera: phoneModel.camera,
+                    name: phoneModel.name,
+                  }
+                : fallbackModel;
+              return (
+                <section>
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h2 className="font-mono text-[11px] uppercase tracking-[0.3em] text-[color:var(--color-navy-500)]">
+                      · Preview · cómo va a quedar
+                    </h2>
+                    {order.printReadyUrl && (
+                      <a
+                        href={order.printReadyUrl}
+                        download={`${order.code}-print-300dpi.jpg`}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--color-navy)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-cream-soft)] transition-all hover:-translate-y-0.5 md:text-[11px]"
+                      >
+                        <Download className="h-3 w-3" />
+                        <span className="hidden sm:inline">
+                          Print-ready 300 DPI
+                        </span>
+                        <span className="sm:hidden">Print 300 DPI</span>
+                      </a>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-start gap-3 md:flex-row md:items-start md:gap-6">
+                    <CoverPreview
+                      photoUrl={order.previewUrl}
+                      coverType={
+                        (order.coverType ?? "normal") as "normal" | "coated"
+                      }
+                      model={previewModel}
+                      height={420}
+                    />
+                    <a
+                      href={order.previewUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--color-navy)]/15 bg-white px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.22em] text-[color:var(--color-navy)]/65 hover:bg-[color:var(--color-navy)]/[0.04]"
+                    >
+                      Ver imagen plana
+                    </a>
+                  </div>
+                </section>
+              );
+            })()}
 
           <section>
             <div className="mb-3 flex items-baseline justify-between gap-2">

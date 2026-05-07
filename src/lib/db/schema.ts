@@ -317,6 +317,29 @@ export const orderPhotos = pgTable(
 )
 
 /* ============================================================
+   CUSTOMERS — clientes únicos identificados por su número de
+   WhatsApp. Se crean/actualizan automáticamente al cada pedido
+   nuevo. El admin puede agregar tags y notas internas para CRM.
+   ============================================================ */
+
+export const customers = pgTable(
+  "customers",
+  {
+    id: id("cust"),
+    /** Identity natural del cliente cubano: el número de WhatsApp. */
+    phone: text("phone").notNull(),
+    /** Nombre más reciente provisto en un pedido. Editable manualmente. */
+    name: text("name"),
+    /** Tags para segmentación (ej. ["recurrente", "habana", "vip"]). */
+    tags: jsonb("tags").$type<string[]>().default([]).notNull(),
+    /** Notas internas del admin sobre el cliente. No se muestran al cliente. */
+    notes: text("notes"),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("customers_phone_uq").on(t.phone)],
+)
+
+/* ============================================================
    TELEGRAM_SUBSCRIBERS — quién recibe notificaciones de pedidos.
    Cuando alguien manda /start al bot lo insertamos como `pending`
    y el admin lo aprueba/rechaza desde el panel. Solo los `approved`

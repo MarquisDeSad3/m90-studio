@@ -7,6 +7,7 @@ import {
   orderPhotos,
   orderEvents,
   coverPricing,
+  customers,
 } from "@/lib/db/schema";
 import {
   diskPathFromFilename,
@@ -315,6 +316,24 @@ export async function POST(req: Request) {
       actor: "system",
       note: "Pedido creado por el cliente",
     });
+
+    // Upsert customer (CRM): si el phone ya existe en la tabla, solo
+    // actualiza el name si vino uno nuevo no-vacío. Si no existe, crea.
+    // Tags y notas las maneja el admin desde /admin/clientes — no las
+    // pisamos acá.
+    await db
+      .insert(customers)
+      .values({
+        phone: parsed.customerPhone,
+        name: parsed.customerName,
+      })
+      .onConflictDoUpdate({
+        target: customers.phone,
+        set: {
+          name: sql`CASE WHEN ${parsed.customerName} <> '' THEN ${parsed.customerName} ELSE ${customers.name} END`,
+          updatedAt: new Date(),
+        },
+      });
 
     // 4. Server-side compose del print-ready a 300 DPI usando los
     //    ORIGINALES (max calidad). Reemplaza el printReady que mando el

@@ -90,8 +90,10 @@ export function CoverPreview({
             "0 30px 60px -25px rgba(1, 27, 83, 0.45), 0 12px 25px -10px rgba(1, 27, 83, 0.20)",
         }}
       >
-        {/* La foto del cliente — fondo full bleed (o positioned con offset
-            si printSize está dado, para mostrar solo la cara). */}
+        {/* La foto del cliente — UNA SOLA IMG. Tanto para normal como
+            para coated: la diferencia visual son overlays CSS, no
+            duplicar la imagen (eso causaba bugs de doble render con
+            distinto width al cambiar maxWidth). */}
         {photoUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
@@ -107,63 +109,36 @@ export function CoverPreview({
           <div className="absolute inset-0 bg-[color:var(--color-navy)]/8" />
         )}
 
-        {/* COATED: placa blanca encima cubriendo casi todo. Deja un margen
-            visible alrededor donde se ve el TPU. */}
+        {/* COATED: efecto de "placa blanca con margen TPU" — solo CSS,
+            sin segunda imagen. Un contorno fino marca el corte de la
+            placa a ~8px del borde, y un brillo sutil sugiere reflejo. */}
         {coverType === "coated" && photoUrl && (
           <>
-            {/* Margen TPU visible (sutil tinte) */}
+            {/* Margen TPU translúcido alrededor */}
             <div
               aria-hidden
-              className="absolute inset-0"
-              style={{ borderRadius: cornerRadius }}
-            />
-            {/* La placa blanca — dejamos margen interior */}
-            <div
-              aria-hidden
-              className="absolute inset-[8px] overflow-hidden"
+              className="pointer-events-none absolute inset-0"
               style={{
-                borderRadius: Math.max(cornerRadius - 6, 4),
                 boxShadow:
-                  "inset 0 1px 0 rgba(255,255,255,0.6), 0 0 0 1px rgba(11,30,77,0.08)",
+                  "inset 0 0 0 8px rgba(245,238,222,0.18), inset 0 0 0 9px rgba(11,30,77,0.06)",
+                borderRadius: cornerRadius,
               }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={photoUrl}
-                alt=""
-                aria-hidden
-                className={
-                  printSize ? "" : "absolute inset-0 h-full w-full object-cover"
-                }
-                style={
-                  printSize
-                    ? {
-                        position: "absolute",
-                        // Compensar el inset-[8px] del padre. Aproximamos
-                        // simple para no complicarnos: el wrap real está
-                        // en el container externo, aquí solo cubrimos.
-                        width: `${(printSize.widthMm / aspectW) * 100}%`,
-                        height: `${(printSize.heightMm / aspectH) * 100}%`,
-                        left: `${(((aspectW - printSize.widthMm) / 2) / aspectW) * 100}%`,
-                        top: `${(((aspectH - printSize.heightMm) / 2) / aspectH) * 100}%`,
-                        objectFit: "cover",
-                      }
-                    : undefined
-                }
-                draggable={false}
-              />
-              {/* Brillo sutil arriba */}
-              <div
-                aria-hidden
-                className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/15 to-transparent"
-              />
-            </div>
+            />
+            {/* Brillo sutil arriba (sobre la placa) */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-[8px] top-[8px] h-[26%]"
+              style={{
+                borderTopLeftRadius: Math.max(cornerRadius - 6, 4),
+                borderTopRightRadius: Math.max(cornerRadius - 6, 4),
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 100%)",
+              }}
+            />
           </>
         )}
 
-        {/* TPU shine overlay — gradient sutil para dar look de plástico
-            transparente. Solo en NORMAL. Para COATED el brillo va sobre la
-            placa (ya hecho arriba). */}
+        {/* NORMAL: brillo sutil de TPU translúcido sobre la imagen. */}
         {coverType === "normal" && (
           <>
             <div

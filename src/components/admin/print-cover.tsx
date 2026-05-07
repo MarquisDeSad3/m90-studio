@@ -169,10 +169,13 @@ export function PrintCover({
               <button
                 type="button"
                 onClick={() => window.print()}
-                disabled={imgState !== "loaded"}
-                className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[color:var(--color-navy)] px-4 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-cream-soft)] hover:-translate-y-0.5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[color:var(--color-navy)] px-4 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-cream-soft)] hover:-translate-y-0.5 active:scale-[0.98]"
               >
-                <Printer className="h-3.5 w-3.5" />
+                {imgState === "loading" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Printer className="h-3.5 w-3.5" />
+                )}
                 Imprimir
               </button>
             </div>

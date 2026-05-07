@@ -76,7 +76,7 @@ export function OrdersListClient({ items }: { items: OrderRow[] }) {
           {filtered.map((o) => (
             <li key={o.id}>
               <Link
-                href={`/admin/orders/${o.code}`}
+                href={`/admin/pedidos/${o.code}`}
                 className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-[color:var(--color-navy)]/[0.02] md:px-8 md:py-5"
               >
                 <div className="min-w-0 flex-1">

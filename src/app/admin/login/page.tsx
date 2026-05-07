@@ -16,7 +16,7 @@ export default function AdminLoginPage() {
 function LoginForm() {
   const router = useRouter();
   const search = useSearchParams();
-  const next = search.get("next") || "/admin/orders";
+  const next = search.get("next") || "/admin/pedidos";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

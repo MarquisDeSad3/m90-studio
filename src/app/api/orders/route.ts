@@ -355,7 +355,7 @@ export async function POST(req: Request) {
       // re-componer manualmente con el endpoint de regenerate (TODO).
     }
 
-    const adminPath = `/admin/orders/${order.code}`;
+    const adminPath = `/admin/pedidos/${order.code}`;
 
     // 5. Notificación a Telegram al admin de M90. Nunca bloquea: si el bot
     //    no está configurado o la API falla, solo se loggea. El cliente ya

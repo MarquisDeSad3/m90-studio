@@ -11,7 +11,10 @@ import {
 } from "lucide-react";
 import { useEditor } from "@/lib/editor/store";
 import { findLayout } from "@/lib/data/layouts";
-import { PHONE_MODELS } from "@/lib/data/phone-models";
+import {
+  PHONE_MODELS,
+  getPrintDimensions,
+} from "@/lib/data/phone-models";
 import { composeFinalCover } from "@/lib/editor/image-utils";
 import {
   dataUrlToBlob,
@@ -83,9 +86,18 @@ export function StepConfirm() {
     waUrl: string;
   } | null>(null);
 
+  // Tamaño del area imprimible: cuerpo del telefono + (grosor + 3mm) por
+  // cada lado (wrap para que la sublimación cubra los costados también).
+  const printDims = useMemo(
+    () =>
+      model
+        ? getPrintDimensions(model)
+        : { widthMm: 75, heightMm: 150, wrapMm: 0 },
+    [model],
+  );
+
   // Componer UNA sola vez a 200 DPI (compromiso: printable + rapido en
   // mobile cubano). Reusamos este blob para preview Y print-ready.
-  // Antes habia dos composes (150 + 300), el 300 colgaba mobiles viejos.
   useEffect(() => {
     if (!layout) return;
     setComposing(true);
@@ -94,8 +106,8 @@ export function StepConfirm() {
       layout.slots,
       state.photos,
       {
-        widthMm: model?.widthMm ?? 75,
-        heightMm: model?.heightMm ?? 150,
+        widthMm: printDims.widthMm,
+        heightMm: printDims.heightMm,
       },
       { dpi: 200, quality: 0.9 },
     )
@@ -104,7 +116,7 @@ export function StepConfirm() {
         setComposeError("No pude generar la imagen final. Probá recargar.");
       })
       .finally(() => setComposing(false));
-  }, [layout, state.photos, model]);
+  }, [layout, state.photos, printDims]);
 
   if (!layout) {
     return (
@@ -246,9 +258,11 @@ export function StepConfirm() {
           coverType: state.coverType,
           layoutId: layout.id,
           layoutName: layout.name,
-          // Dimensiones reales (snapshot del catalogo) para impresion exacta
-          widthMm: model?.widthMm,
-          heightMm: model?.heightMm,
+          // Dimensiones del area de impresion: cuerpo + 2*(grosor + 3mm
+          // de curvatura) en cada eje. Esto incluye el wrap que envuelve
+          // los costados del cover en la sublimación.
+          widthMm: printDims.widthMm,
+          heightMm: printDims.heightMm,
           cornerRadiusMm: model?.cornerRadiusMm,
           cameraBox: model?.camera
             ? {
@@ -439,6 +453,10 @@ export function StepConfirm() {
                       camera: null,
                     }
               }
+              printSize={{
+                widthMm: printDims.widthMm,
+                heightMm: printDims.heightMm,
+              }}
               height={previewMaxH}
             />
           )}

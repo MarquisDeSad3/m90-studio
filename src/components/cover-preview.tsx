@@ -17,6 +17,7 @@ export function CoverPreview({
   photoUrl,
   coverType,
   model,
+  printSize,
   height = 520,
   className,
 }: {
@@ -30,6 +31,11 @@ export function CoverPreview({
     camera?: [number, number, number, number] | null;
     name?: string;
   };
+  /** Si la `photoUrl` se compuso al tamaño de impresión TOTAL (cuerpo +
+      wrap), pasame las dimensiones aquí para que mostremos sólo la parte
+      central que queda en la cara trasera del cover. Sin esto, la imagen
+      se hace `object-fit: cover` y se distorsiona. */
+  printSize?: { widthMm: number; heightMm: number };
   /** Alto en pixels del preview. El ancho se calcula del aspect ratio. */
   height?: number;
   className?: string;
@@ -48,6 +54,20 @@ export function CoverPreview({
       }
     : null;
 
+  // Si la imagen viene con wrap, la posicionamos absolutamente con el
+  // tamaño total (printSize) y offset negativo para mostrar solo la
+  // cara central.
+  const imageStyle: React.CSSProperties = printSize
+    ? {
+        position: "absolute",
+        width: `${(printSize.widthMm / aspectW) * 100}%`,
+        height: `${(printSize.heightMm / aspectH) * 100}%`,
+        left: `${(((aspectW - printSize.widthMm) / 2) / aspectW) * 100}%`,
+        top: `${(((aspectH - printSize.heightMm) / 2) / aspectH) * 100}%`,
+        objectFit: "cover" as const,
+      }
+    : {};
+
   return (
     <div
       className={cn(
@@ -65,13 +85,17 @@ export function CoverPreview({
             "0 30px 60px -25px rgba(1, 27, 83, 0.45), 0 12px 25px -10px rgba(1, 27, 83, 0.20)",
         }}
       >
-        {/* La foto del cliente — fondo full bleed */}
+        {/* La foto del cliente — fondo full bleed (o positioned con offset
+            si printSize está dado, para mostrar solo la cara). */}
         {photoUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={photoUrl}
             alt="Preview"
-            className="absolute inset-0 h-full w-full object-cover"
+            className={
+              printSize ? "" : "absolute inset-0 h-full w-full object-cover"
+            }
+            style={imageStyle}
             draggable={false}
           />
         ) : (
@@ -103,7 +127,24 @@ export function CoverPreview({
                 src={photoUrl}
                 alt=""
                 aria-hidden
-                className="absolute inset-0 h-full w-full object-cover"
+                className={
+                  printSize ? "" : "absolute inset-0 h-full w-full object-cover"
+                }
+                style={
+                  printSize
+                    ? {
+                        position: "absolute",
+                        // Compensar el inset-[8px] del padre. Aproximamos
+                        // simple para no complicarnos: el wrap real está
+                        // en el container externo, aquí solo cubrimos.
+                        width: `${(printSize.widthMm / aspectW) * 100}%`,
+                        height: `${(printSize.heightMm / aspectH) * 100}%`,
+                        left: `${(((aspectW - printSize.widthMm) / 2) / aspectW) * 100}%`,
+                        top: `${(((aspectH - printSize.heightMm) / 2) / aspectH) * 100}%`,
+                        objectFit: "cover",
+                      }
+                    : undefined
+                }
                 draggable={false}
               />
               {/* Brillo sutil arriba */}

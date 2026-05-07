@@ -3,15 +3,22 @@
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { LayoutDef } from "@/lib/data/layouts";
-import type { PhoneModelDef } from "@/lib/data/phone-models";
+import {
+  getPrintDimensions,
+  type PhoneModelDef,
+} from "@/lib/data/phone-models";
 import type { Photo } from "@/lib/editor/store";
 
 /**
  * Canvas interactivo del editor: cada slot del layout es un boton clickeable.
- * - Si el slot esta vacio: muestra un + con el numero del slot.
- * - Si tiene foto: la muestra cropeada al objeto del slot.
  *
- * El height lo controla el caller, el width sale del aspect del modelo.
+ * El canvas representa el AREA DE IMPRESION TOTAL del cover:
+ *   cuerpo del telefono + (grosor + 3mm de curvatura) por cada lado
+ *
+ * Los slots cubren toda esa area. La cara trasera del cover (la zona
+ * central) está marcada con un borde sutil para que el cliente sepa que
+ * lo importante (caras, texto) va ahí — los bordes envuelven los lados
+ * del cover en el wrap del cover.
  */
 export function EditorCanvas({
   layout,
@@ -26,12 +33,21 @@ export function EditorCanvas({
   onSlotClick: (slotIndex: number) => void;
   height: number;
 }) {
-  const aspectW = model ? model.widthMm : 75;
-  const aspectH = model ? model.heightMm : 150;
+  const printDims = model
+    ? getPrintDimensions(model)
+    : { widthMm: 81, heightMm: 156, wrapMm: 0 };
+  const aspectW = printDims.widthMm;
+  const aspectH = printDims.heightMm;
   const width = (aspectW / aspectH) * height;
   const cornerRadius = model
-    ? (model.cornerRadiusMm / model.heightMm) * height
+    ? (model.cornerRadiusMm / aspectH) * height
     : 12;
+
+  // Cara del cover (zona segura) en porcentaje del canvas
+  const safeInsetXPct =
+    printDims.wrapMm > 0 ? (printDims.wrapMm / aspectW) * 100 : 0;
+  const safeInsetYPct =
+    printDims.wrapMm > 0 ? (printDims.wrapMm / aspectH) * 100 : 0;
 
   return (
     <div
@@ -97,16 +113,33 @@ export function EditorCanvas({
         );
       })}
 
-      {/* Camera bbox encima de los slots */}
+      {/* Cara segura — borde sutil que marca dónde queda la cara
+          trasera del cover (lo que se ve al frente). Lo demás envuelve
+          los lados. */}
+      {printDims.wrapMm > 0 && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute border border-dashed border-[color:var(--color-cream-soft)]/55"
+          style={{
+            left: `${safeInsetXPct}%`,
+            top: `${safeInsetYPct}%`,
+            right: `${safeInsetXPct}%`,
+            bottom: `${safeInsetYPct}%`,
+          }}
+        />
+      )}
+
+      {/* Camera bbox — posicionada relative al cuerpo del telefono que
+          está centrado dentro del print area. */}
       {model?.camera && (
         <div
           aria-hidden
           className="pointer-events-none absolute rounded-[3px] bg-[color:var(--color-navy)]/65 ring-1 ring-[color:var(--color-cream-soft)]/40"
           style={{
-            left: `${(model.camera[0] / model.widthMm) * 100}%`,
-            top: `${(model.camera[1] / model.heightMm) * 100}%`,
-            width: `${(model.camera[2] / model.widthMm) * 100}%`,
-            height: `${(model.camera[3] / model.heightMm) * 100}%`,
+            left: `${((printDims.wrapMm + model.camera[0]) / aspectW) * 100}%`,
+            top: `${((printDims.wrapMm + model.camera[1]) / aspectH) * 100}%`,
+            width: `${(model.camera[2] / aspectW) * 100}%`,
+            height: `${(model.camera[3] / aspectH) * 100}%`,
           }}
         />
       )}

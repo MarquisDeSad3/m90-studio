@@ -41,3 +41,9 @@ next-env.d.ts
 
 # backups locales (procesamiento de imagenes, no van al repo)
 /.frames-bak/
+
+# uploads runtime (admin local, en prod va a /var/www/uploads)
+/.uploads/
+
+# claude code local config
+/.claude/settings.local.json

@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { Loader2, Trash2, Upload } from "lucide-react";
 import { useEditor } from "@/lib/editor/store";
 import { findLayout } from "@/lib/data/layouts";
-import { PHONE_MODELS } from "@/lib/data/phone-models";
+import { getPrintDimensions, PHONE_MODELS } from "@/lib/data/phone-models";
 import { compressImageFile } from "@/lib/editor/image-utils";
 import {
   clearOriginal,
@@ -44,9 +44,13 @@ export function StepPhotos() {
   }
 
   const slot = activeSlot != null ? layout.slots[activeSlot] : null;
-  const aspectW = model ? model.widthMm : 75;
-  const aspectH = model ? model.heightMm : 150;
-  // Aspect del slot dentro del canvas: relativo al modelo
+  // Aspect total del print area (cuerpo + wrap), no solo el cuerpo —
+  // los slots cubren el area completa.
+  const printDims = model
+    ? getPrintDimensions(model)
+    : { widthMm: 75, heightMm: 150, wrapMm: 0 };
+  const aspectW = printDims.widthMm;
+  const aspectH = printDims.heightMm;
   const slotAspect = slot
     ? (slot.w * aspectW) / (slot.h * aspectH)
     : 1;

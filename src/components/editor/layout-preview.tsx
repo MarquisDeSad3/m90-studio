@@ -2,7 +2,10 @@
 
 import { cn } from "@/lib/utils";
 import type { LayoutDef } from "@/lib/data/layouts";
-import type { PhoneModelDef } from "@/lib/data/phone-models";
+import {
+  getPrintDimensions,
+  type PhoneModelDef,
+} from "@/lib/data/phone-models";
 
 /**
  * Preview de un layout: renderiza los slots como divs posicionados,
@@ -11,6 +14,8 @@ import type { PhoneModelDef } from "@/lib/data/phone-models";
  * Si no hay modelo, usa un aspect 9:18 default.
  *
  * El tamaño se controla por `height`. El width se calcula desde el aspect.
+ *
+ * El canvas representa el AREA DE IMPRESION TOTAL (cuerpo + wrap).
  */
 export function LayoutPreview({
   layout,
@@ -25,11 +30,14 @@ export function LayoutPreview({
   selected?: boolean;
   showCamera?: boolean;
 }) {
-  const aspectW = model ? model.widthMm : 75;
-  const aspectH = model ? model.heightMm : 150;
+  const printDims = model
+    ? getPrintDimensions(model)
+    : { widthMm: 75, heightMm: 150, wrapMm: 0 };
+  const aspectW = printDims.widthMm;
+  const aspectH = printDims.heightMm;
   const width = (aspectW / aspectH) * height;
   const cornerRadius = model
-    ? (model.cornerRadiusMm / model.heightMm) * height
+    ? (model.cornerRadiusMm / aspectH) * height
     : 10;
 
   return (
@@ -70,15 +78,16 @@ export function LayoutPreview({
         </div>
       ))}
 
-      {/* Camera bbox encima de los slots */}
+      {/* Camera bbox — coords del cuerpo del telefono, centrado dentro del
+          print area (corrido por el wrap). */}
       {showCamera && model?.camera && (
         <div
           className="pointer-events-none absolute rounded-[3px] bg-[color:var(--color-navy)]/55 ring-1 ring-[color:var(--color-cream-soft)]/40"
           style={{
-            left: `${(model.camera[0] / model.widthMm) * 100}%`,
-            top: `${(model.camera[1] / model.heightMm) * 100}%`,
-            width: `${(model.camera[2] / model.widthMm) * 100}%`,
-            height: `${(model.camera[3] / model.heightMm) * 100}%`,
+            left: `${((printDims.wrapMm + model.camera[0]) / aspectW) * 100}%`,
+            top: `${((printDims.wrapMm + model.camera[1]) / aspectH) * 100}%`,
+            width: `${(model.camera[2] / aspectW) * 100}%`,
+            height: `${(model.camera[3] / aspectH) * 100}%`,
           }}
         />
       )}

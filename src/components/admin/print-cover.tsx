@@ -61,8 +61,6 @@ export function PrintCover({
     "loading",
   );
   // Mirror default: ON siempre (todos los pedidos van por sublimación)
-  // Nota: `coverType` se mantiene en props por si en el futuro se
-  // diferencia el proceso por tipo de funda.
   const [mirror, setMirror] = useState(true);
   const [showCutMarks, setShowCutMarks] = useState(true);
   const [autoTriggered, setAutoTriggered] = useState(false);
@@ -74,10 +72,13 @@ export function PrintCover({
     return () => clearTimeout(t);
   }, [autoPrint, imgState, autoTriggered]);
 
+  // widthMm/heightMm vienen del pedido y YA incluyen el wrap (cuerpo del
+  // teléfono + grosor + 3mm curvatura por lado). El compose en cliente y
+  // server se hace a estas dimensiones, así que la imagen impresa cubre
+  // la cara trasera + envuelve los costados del cover.
   const dpi300W = Math.round((widthMm * 300) / 25.4);
   const dpi300H = Math.round((heightMm * 300) / 25.4);
 
-  // Imagen centrada en A4 portrait
   const offsetXmm = (A4_WIDTH_MM - widthMm) / 2;
   const offsetYmm = (A4_HEIGHT_MM - heightMm) / 2;
 

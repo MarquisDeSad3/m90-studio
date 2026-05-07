@@ -1,7 +1,7 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Download,
@@ -56,7 +56,6 @@ export function PrintCover({
       Default false porque preferimos que el usuario revise mirror antes. */
   autoPrint?: boolean;
 }) {
-  const router = useRouter();
   const imgRef = useRef<HTMLImageElement>(null);
   const [imgState, setImgState] = useState<"loading" | "loaded" | "error">(
     "loading",
@@ -150,14 +149,13 @@ export function PrintCover({
               </p>
             </div>
             <div className="flex flex-shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => router.back()}
+              <Link
+                href={`/admin/pedidos/${code}`}
                 className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[color:var(--color-navy)]/15 bg-white px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-navy)]/65 hover:bg-[color:var(--color-navy)]/[0.04]"
               >
                 <ArrowLeft className="h-3 w-3" />
-                <span className="hidden sm:inline">Volver</span>
-              </button>
+                <span className="hidden sm:inline">Volver al pedido</span>
+              </Link>
               <a
                 href={imageUrl}
                 download={`${code}-print-${widthMm}x${heightMm}mm${mirror ? "-mirror" : ""}.jpg`}

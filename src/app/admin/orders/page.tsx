@@ -4,6 +4,7 @@ import { Package } from "lucide-react";
 import { db } from "@/lib/db";
 import { orders } from "@/lib/db/schema";
 import { Logo } from "@/components/logo";
+import { getCurrentAdmin } from "@/lib/admin-auth";
 import {
   OrdersListClient,
   type OrderRow,
@@ -56,6 +57,8 @@ export default async function AdminOrdersPage({
     params.view && params.view in VIEW_FILTERS
       ? (params.view as View)
       : "pending";
+
+  const me = await getCurrentAdmin();
 
   const statusFilter = VIEW_FILTERS[view];
 
@@ -132,6 +135,14 @@ export default async function AdminOrdersPage({
             </span>
           </div>
           <div className="flex items-center gap-4">
+            {me?.role === "owner" && (
+              <Link
+                href="/admin/usuarios"
+                className="text-[11px] uppercase tracking-[0.22em] text-[color:var(--color-navy)]/55 hover:text-[color:var(--color-navy)]"
+              >
+                Usuarios
+              </Link>
+            )}
             <Link
               href="/admin/ajustes"
               className="text-[11px] uppercase tracking-[0.22em] text-[color:var(--color-navy)]/55 hover:text-[color:var(--color-navy)]"
@@ -143,7 +154,7 @@ export default async function AdminOrdersPage({
                 type="submit"
                 className="text-[11px] uppercase tracking-[0.22em] text-[color:var(--color-navy)]/55 hover:text-[color:var(--color-navy)]"
               >
-                Cerrar sesión
+                Cerrar sesión {me ? `· ${me.name}` : ""}
               </button>
             </form>
           </div>

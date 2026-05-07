@@ -29,13 +29,20 @@ function hexToBytes(hex: string): Uint8Array {
   return out;
 }
 
+/** Token format: `<adminId>.<expiresAt>.<sig>` donde sig firma
+ *  `<adminId>.<expiresAt>` con ADMIN_SESSION_SECRET. Validamos solo la
+ *  firma; la verificación de que el admin sigue vivo (no soft-deleted)
+ *  ocurre en el server component / API route, ya que el middleware
+ *  corre en Edge sin acceso a DB. */
 async function verifyToken(
   token: string | undefined,
   secret: string,
 ): Promise<boolean> {
   if (!token || !secret) return false;
-  const [expStr, sig] = token.split(".");
-  if (!expStr || !sig) return false;
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  const [adminId, expStr, sig] = parts;
+  if (!adminId || !expStr || !sig) return false;
   const exp = Number(expStr);
   if (!Number.isFinite(exp) || exp < Date.now()) return false;
   try {
@@ -46,7 +53,7 @@ async function verifyToken(
       "HMAC",
       key,
       sigBytes as BufferSource,
-      encoder.encode(expStr),
+      encoder.encode(`${adminId}.${expStr}`),
     );
   } catch {
     return false;

@@ -21,9 +21,10 @@ import { cn } from "@/lib/utils";
  *  2. Aplicás calor con prensa térmica sobre la placa blanca del cover
  *  3. La tinta se transfiere y queda al derecho en el cover
  *
- * Por eso para coverType="coated" (la 2-en-1 con placa blanca) el toggle
- * "espejar" arranca en ON. Para "normal" (TPU directo, transferencia
- * térmica simple) arranca OFF.
+ * El toggle "espejar" arranca en ON SIEMPRE porque el flujo confirmado
+ * con M90 es que TODOS los pedidos (normal + coated) se imprimen vía
+ * sublimación. Si en algún momento cambia el proceso para "normal", se
+ * usa el toggle manual.
  *
  * El @page es A4 (210×297mm) porque es lo que la L1250 acepta. La imagen
  * va centrada al tamaño físico exacto en mm; el resto del papel queda en
@@ -60,8 +61,10 @@ export function PrintCover({
   const [imgState, setImgState] = useState<"loading" | "loaded" | "error">(
     "loading",
   );
-  // Mirror default: ON para coated (sublimación necesita espejo)
-  const [mirror, setMirror] = useState(coverType === "coated");
+  // Mirror default: ON siempre (todos los pedidos van por sublimación)
+  // Nota: `coverType` se mantiene en props por si en el futuro se
+  // diferencia el proceso por tipo de funda.
+  const [mirror, setMirror] = useState(true);
   const [showCutMarks, setShowCutMarks] = useState(true);
   const [autoTriggered, setAutoTriggered] = useState(false);
 
@@ -210,9 +213,9 @@ export function PrintCover({
               <strong>Epson L1250 + papel de sublimación:</strong> en el diálogo
               de impresión usá <strong>&ldquo;Tamaño real&rdquo;</strong> /{" "}
               <strong>100%</strong>, márgenes en <strong>0</strong>, papel{" "}
-              <strong>A4</strong>. Si imprimís recubrimiento (placa blanca),{" "}
-              <strong>dejá &ldquo;Espejar&rdquo; ON</strong> — al transferir por
-              calor la imagen queda al derecho en el cover.
+              <strong>A4</strong>. <strong>Espejar ON</strong> es el default
+              para sublimación — al transferir por calor la imagen queda al
+              derecho en el cover.
             </div>
           </div>
         </div>

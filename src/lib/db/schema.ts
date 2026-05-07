@@ -86,9 +86,13 @@ export const phoneModels = pgTable(
     brand: phoneBrandEnum("brand").notNull(),
     name: text("name").notNull(),
     aliases: jsonb("aliases").$type<string[]>().default([]).notNull(),
-    // Physical dimensions in mm — used for display only, not print.
+    // Physical dimensions in mm — del cuerpo del teléfono. Las dimensiones
+    // de print (cuerpo + wrap) se derivan en runtime con getPrintDimensions.
     widthMm: integer("width_mm").notNull(),
     heightMm: integer("height_mm").notNull(),
+    /** Grosor del teléfono. Define cuánto envuelve la sublimación los
+        costados del cover (`wrapMm = depthMm + 3mm de curvatura`). */
+    depthMm: integer("depth_mm").default(0).notNull(),
     cornerRadiusMm: integer("corner_radius_mm").default(8).notNull(),
     // Camera bump bbox in mm, top-left origin from device front.
     cameraX: integer("camera_x"),

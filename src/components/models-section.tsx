@@ -1,20 +1,24 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import {
-  PHONE_MODELS,
   BRANDS_ORDERED,
   BRAND_LABEL,
   type PhoneBrand,
+  type PhoneModelDef,
 } from "@/lib/data/phone-models";
 import { cn } from "@/lib/utils";
 
-export function ModelsSection() {
+export function ModelsSection({ models }: { models: PhoneModelDef[] }) {
   const [active, setActive] = useState<PhoneBrand>("apple");
-  const filtered = PHONE_MODELS.filter((m) => m.brand === active).sort(
-    (a, b) => b.popularity - a.popularity,
+  const filtered = useMemo(
+    () =>
+      models
+        .filter((m) => m.brand === active)
+        .sort((a, b) => b.popularity - a.popularity),
+    [models, active],
   );
 
   return (

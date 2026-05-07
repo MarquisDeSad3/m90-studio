@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, ChevronRight, Search } from "lucide-react";
-import { useEditor } from "@/lib/editor/store";
+import { useEditor, usePhoneModels } from "@/lib/editor/store";
 import {
-  PHONE_MODELS,
   type PhoneBrand,
   type PhoneModelDef,
 } from "@/lib/data/phone-models";
@@ -77,9 +76,9 @@ type ModelOption = {
   popularity: number;
 };
 
-function expandModels(): ModelOption[] {
+function expandModels(models: PhoneModelDef[]): ModelOption[] {
   const out: ModelOption[] = [];
-  for (const m of PHONE_MODELS) {
+  for (const m of models) {
     if (m.aliases.length === 0) {
       out.push({
         slug: m.slug,
@@ -103,15 +102,15 @@ function expandModels(): ModelOption[] {
   return out;
 }
 
-const ALL_OPTIONS = expandModels();
-
 export function StepModel() {
   const { state, dispatch, goNext } = useEditor();
+  const phoneModels = usePhoneModels();
+  const allOptions = useMemo(() => expandModels(phoneModels), [phoneModels]);
   const [pickedBrand, setPickedBrand] = useState<PhoneBrand | null>(() => {
     // Si ya hay un modelo seleccionado (rehidratacion), saltar a la lista
     // de modelos de su marca para que el cliente vea su selección.
     if (state.modelSlug) {
-      const m = PHONE_MODELS.find((g) => g.slug === state.modelSlug);
+      const m = phoneModels.find((g) => g.slug === state.modelSlug);
       return m?.brand ?? null;
     }
     return null;
@@ -125,13 +124,13 @@ export function StepModel() {
 
   const optionsForBrand = useMemo(() => {
     if (!pickedBrand) return [];
-    const list = ALL_OPTIONS.filter((o) => o.brand === pickedBrand);
+    const list = allOptions.filter((o) => o.brand === pickedBrand);
     list.sort((a, b) => {
       if (b.popularity !== a.popularity) return b.popularity - a.popularity;
       return a.displayName.localeCompare(b.displayName);
     });
     return list;
-  }, [pickedBrand]);
+  }, [allOptions, pickedBrand]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -157,9 +156,9 @@ export function StepModel() {
       oneplus: 0,
       other: 0,
     };
-    for (const o of ALL_OPTIONS) counts[o.brand]++;
+    for (const o of allOptions) counts[o.brand]++;
     return counts;
-  }, []);
+  }, [allOptions]);
 
   /* ============================================================
      Sub-fase A: elegir MARCA

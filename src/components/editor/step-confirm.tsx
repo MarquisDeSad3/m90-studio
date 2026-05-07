@@ -9,12 +9,9 @@ import {
   RotateCcw,
   ShoppingCart,
 } from "lucide-react";
-import { useEditor } from "@/lib/editor/store";
+import { useEditor, usePhoneModel } from "@/lib/editor/store";
 import { findLayout } from "@/lib/data/layouts";
-import {
-  PHONE_MODELS,
-  getPrintDimensions,
-} from "@/lib/data/phone-models";
+import { getPrintDimensions } from "@/lib/data/phone-models";
 import { composeFinalCover } from "@/lib/editor/image-utils";
 import {
   dataUrlToBlob,
@@ -37,10 +34,7 @@ export function StepConfirm() {
     () => (state.layoutId ? findLayout(state.layoutId) : null),
     [state.layoutId],
   );
-  const model = useMemo(
-    () => PHONE_MODELS.find((m) => m.slug === state.modelSlug) ?? null,
-    [state.modelSlug],
-  );
+  const model = usePhoneModel(state.modelSlug);
 
   const [composed, setComposed] = useState<Composed | null>(null);
   const [composing, setComposing] = useState(true);

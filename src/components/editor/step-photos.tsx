@@ -2,9 +2,9 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Loader2, Trash2, Upload } from "lucide-react";
-import { useEditor } from "@/lib/editor/store";
+import { useEditor, usePhoneModel } from "@/lib/editor/store";
 import { findLayout } from "@/lib/data/layouts";
-import { getPrintDimensions, PHONE_MODELS } from "@/lib/data/phone-models";
+import { getPrintDimensions } from "@/lib/data/phone-models";
 import { compressImageFile } from "@/lib/editor/image-utils";
 import {
   clearOriginal,
@@ -28,10 +28,7 @@ export function StepPhotos() {
     () => (state.layoutId ? findLayout(state.layoutId) : null),
     [state.layoutId],
   );
-  const model = useMemo(
-    () => PHONE_MODELS.find((m) => m.slug === state.modelSlug) ?? null,
-    [state.modelSlug],
-  );
+  const model = usePhoneModel(state.modelSlug);
 
   if (!layout) {
     return (

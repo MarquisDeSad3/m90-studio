@@ -2,9 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Check } from "lucide-react";
-import { useEditor } from "@/lib/editor/store";
+import { useEditor, usePhoneModel } from "@/lib/editor/store";
 import { LAYOUTS, type LayoutDef } from "@/lib/data/layouts";
-import { PHONE_MODELS } from "@/lib/data/phone-models";
 import { cn } from "@/lib/utils";
 import { NextCta } from "./next-cta";
 import { LayoutPreview } from "./layout-preview";
@@ -25,10 +24,7 @@ export function StepLayout() {
   const { state, dispatch, goNext } = useEditor();
   const [filter, setFilter] = useState<string>("all");
 
-  const model = useMemo(
-    () => PHONE_MODELS.find((m) => m.slug === state.modelSlug) ?? null,
-    [state.modelSlug],
-  );
+  const model = usePhoneModel(state.modelSlug);
 
   const list = useMemo(() => {
     if (filter === "all") return LAYOUTS;

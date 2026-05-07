@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { orders, orderPhotos, orderEvents } from "@/lib/db/schema";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { findLayout } from "@/lib/data/layouts";
-import { PHONE_MODELS } from "@/lib/data/phone-models";
+import { getPhoneModelBySlug } from "@/lib/data/phone-models-db";
 import { composeOrderPrintReady } from "@/lib/editor/compose-server";
 import {
   diskPathFromFilename,
@@ -58,7 +58,11 @@ export async function POST(
     );
   }
 
-  const model = PHONE_MODELS.find((m) => m.slug === order.phoneModelSlug);
+  // includeInactive porque pedidos viejos pueden referenciar modelos
+  // que el admin desactivó en el catálogo después.
+  const model = await getPhoneModelBySlug(order.phoneModelSlug, {
+    includeInactive: true,
+  });
   if (!model) {
     return NextResponse.json(
       { error: `Modelo ${order.phoneModelSlug} desconocido` },

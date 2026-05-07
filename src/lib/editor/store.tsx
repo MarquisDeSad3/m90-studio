@@ -9,6 +9,7 @@ import {
   type Dispatch,
   type ReactNode,
 } from "react";
+import type { PhoneModelDef } from "@/lib/data/phone-models";
 
 /**
  * Estado global del editor de fundas. useReducer + Context + localStorage.
@@ -120,6 +121,10 @@ type Ctx = {
   dispatch: Dispatch<Action>;
   goNext: () => void;
   goBack: () => void;
+  /** Catálogo de modelos disponible para este flow del editor.
+      Inyectado por el server component padre — los steps lo leen
+      vía `usePhoneModels()`. */
+  models: PhoneModelDef[];
 };
 
 const EditorContext = createContext<Ctx | null>(null);
@@ -132,7 +137,13 @@ function clampStep(s: number): EditorStep {
   return s as EditorStep;
 }
 
-export function EditorProvider({ children }: { children: ReactNode }) {
+export function EditorProvider({
+  children,
+  models,
+}: {
+  children: ReactNode;
+  models: PhoneModelDef[];
+}) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
 
   useEffect(() => {
@@ -177,7 +188,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
   }, [state.step]);
 
   return (
-    <EditorContext.Provider value={{ state, dispatch, goNext, goBack }}>
+    <EditorContext.Provider value={{ state, dispatch, goNext, goBack, models }}>
       {children}
     </EditorContext.Provider>
   );
@@ -189,4 +200,18 @@ export function useEditor(): Ctx {
     throw new Error("useEditor() debe usarse dentro de <EditorProvider>");
   }
   return ctx;
+}
+
+/** Catálogo de modelos disponible (cargado server-side desde DB y
+    pasado al EditorProvider por la layout del editor). */
+export function usePhoneModels(): PhoneModelDef[] {
+  return useEditor().models;
+}
+
+/** Busca un modelo del catálogo por slug. Si no existe (slug viejo,
+    modelo desactivado) devuelve null. */
+export function usePhoneModel(slug: string | null): PhoneModelDef | null {
+  const models = usePhoneModels();
+  if (!slug) return null;
+  return models.find((m) => m.slug === slug) ?? null;
 }

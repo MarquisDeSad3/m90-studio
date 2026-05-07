@@ -290,14 +290,14 @@ function ActionBtn({
       title={label}
       aria-label={label}
       className={cn(
-        "inline-flex h-8 items-center gap-1 rounded-full px-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] transition-colors disabled:cursor-not-allowed disabled:opacity-40 sm:px-3",
+        "inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-full px-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] transition-colors disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:px-3",
         styles[variant],
       )}
     >
       {loading ? (
-        <Loader2 className="h-3 w-3 animate-spin" />
+        <Loader2 className="h-3.5 w-3.5 animate-spin sm:h-3 sm:w-3" />
       ) : (
-        <Icon className="h-3 w-3" strokeWidth={2.4} />
+        <Icon className="h-3.5 w-3.5 sm:h-3 sm:w-3" strokeWidth={2.4} />
       )}
       <span className="hidden sm:inline">{label}</span>
     </button>

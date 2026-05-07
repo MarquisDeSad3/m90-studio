@@ -3,6 +3,7 @@ import {
   DollarSign,
   Package,
   Send,
+  Smartphone,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -58,6 +59,12 @@ export const ADMIN_NAV: AdminNavItem[] = [
     label: "Precios",
     icon: DollarSign,
     matcher: startsWith("/admin/precios"),
+  },
+  {
+    href: "/admin/modelos",
+    label: "Modelos",
+    icon: Smartphone,
+    matcher: startsWith("/admin/modelos"),
   },
   {
     href: "/admin/usuarios",

@@ -51,7 +51,8 @@ export function CustomersList({
         </div>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-[color:var(--color-navy)]/10 bg-white">
-          <table className="w-full text-left text-[13px] text-[color:var(--color-navy)]">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[840px] text-left text-[13px] text-[color:var(--color-navy)]">
             <thead className="bg-[color:var(--color-navy)]/[0.04] font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--color-navy)]/55">
               <tr>
                 <th className="px-3 py-2.5">Cliente</th>
@@ -140,6 +141,7 @@ export function CustomersList({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </>

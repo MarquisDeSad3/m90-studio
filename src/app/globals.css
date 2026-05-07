@@ -61,6 +61,17 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* iOS Safari hace auto-zoom al focus en inputs con font-size < 16px.
+   Forzamos 16px solo en pantallas mobile para evitar el zoom, sin
+   afectar la estética en desktop donde los inputs tienen 13-14px. */
+@media (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 /* Tweak default focus ring to match brand */
 :focus-visible {
   outline: 2px solid var(--color-navy);

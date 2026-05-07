@@ -99,7 +99,8 @@ export function ModelsEditor({ initial }: { initial: ModelRow[] }) {
 
       {/* Tabla */}
       <div className="overflow-hidden rounded-2xl border border-[color:var(--color-navy)]/10 bg-white">
-        <table className="w-full text-left text-[13px] text-[color:var(--color-navy)]">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[820px] text-left text-[13px] text-[color:var(--color-navy)]">
           <thead className="bg-[color:var(--color-navy)]/[0.04] font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--color-navy)]/55">
             <tr>
               <th className="px-3 py-2.5">Marca</th>
@@ -173,6 +174,7 @@ export function ModelsEditor({ initial }: { initial: ModelRow[] }) {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {editing && (

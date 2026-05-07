@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq, asc, desc } from "drizzle-orm";
-import { ArrowLeft, Download, History, Phone, User } from "lucide-react";
+import { ArrowLeft, Download, History, Phone, Printer, User } from "lucide-react";
 import { db } from "@/lib/db";
 import { orders, orderPhotos, orderEvents } from "@/lib/db/schema";
 import { findPhoneModel } from "@/lib/data/phone-models";
@@ -226,23 +226,30 @@ export default async function AdminOrderDetailPage({ params }: Props) {
                 : fallbackModel;
               return (
                 <section>
-                  <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <h2 className="font-mono text-[11px] uppercase tracking-[0.3em] text-[color:var(--color-navy-500)]">
                       · Preview · cómo va a quedar
                     </h2>
-                    {order.printReadyUrl && (
-                      <a
-                        href={order.printReadyUrl}
-                        download={`${order.code}-print-300dpi.jpg`}
+                    <div className="flex flex-wrap gap-2">
+                      <Link
+                        href={`/admin/pedidos/${order.code}/print`}
+                        target="_blank"
                         className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--color-navy)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-cream-soft)] transition-all hover:-translate-y-0.5 md:text-[11px]"
                       >
-                        <Download className="h-3 w-3" />
-                        <span className="hidden sm:inline">
-                          Print-ready 300 DPI
-                        </span>
-                        <span className="sm:hidden">Print 300 DPI</span>
-                      </a>
-                    )}
+                        <Printer className="h-3.5 w-3.5" />
+                        Imprimir
+                      </Link>
+                      {order.printReadyUrl && (
+                        <a
+                          href={order.printReadyUrl}
+                          download={`${order.code}-print-300dpi.jpg`}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--color-navy)]/15 bg-white px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-navy)]/65 hover:bg-[color:var(--color-navy)]/[0.04] md:text-[11px]"
+                        >
+                          <Download className="h-3 w-3" />
+                          JPG 300 DPI
+                        </a>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-col items-start gap-3 md:flex-row md:items-start md:gap-6">
                     <CoverPreview

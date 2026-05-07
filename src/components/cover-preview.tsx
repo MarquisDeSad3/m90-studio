@@ -56,12 +56,17 @@ export function CoverPreview({
 
   // Si la imagen viene con wrap, la posicionamos absolutamente con el
   // tamaño total (printSize) y offset negativo para mostrar solo la
-  // cara central.
+  // cara central. `maxWidth: none` es CRÍTICO — el reset global de
+  // Tailwind aplica `max-width: 100%` a todas las imgs y eso piso el
+  // `width: 127%` que necesitamos para que la imagen sobresalga del
+  // container y se clipee en los costados (mostrando solo el cuerpo).
   const imageStyle: React.CSSProperties = printSize
     ? {
         position: "absolute",
         width: `${(printSize.widthMm / aspectW) * 100}%`,
         height: `${(printSize.heightMm / aspectH) * 100}%`,
+        maxWidth: "none",
+        maxHeight: "none",
         left: `${(((aspectW - printSize.widthMm) / 2) / aspectW) * 100}%`,
         top: `${(((aspectH - printSize.heightMm) / 2) / aspectH) * 100}%`,
         objectFit: "cover" as const,

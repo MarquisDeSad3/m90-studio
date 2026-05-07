@@ -213,10 +213,17 @@ export const orders = pgTable(
     phoneModelName: text("phone_model_name").notNull(),
     layoutId: text("layout_id").notNull(),
     layoutName: text("layout_name").notNull(),
-    /** Dimensiones fisicas del case (snapshot al crear pedido — el catalogo
-        puede cambiar despues). Usadas para generar print-ready a 300 DPI. */
+    /** Dimensiones fisicas del area de impresion (snapshot al crear pedido).
+        Incluye cuerpo + 2*(grosor + 3mm curvatura) por eje, para que la
+        sublimacion cubra los costados. Usadas para generar print-ready
+        a 300 DPI. */
     widthMm: integer("width_mm"),
     heightMm: integer("height_mm"),
+    /** Override del wrap en mm. Si el admin ajusta la imagen y la regenera
+        con otro wrap (ej. el cover real tiene mas/menos costado del que
+        asumimos), se guarda aqui para que el siguiente compose use este
+        valor en vez del default `depthMm + 3mm`. NULL = usar default. */
+    customWrapMm: integer("custom_wrap_mm"),
     cornerRadiusMm: integer("corner_radius_mm"),
     cameraBox: jsonb("camera_box").$type<{
       x: number;

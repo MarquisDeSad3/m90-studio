@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Download,
   FlipHorizontal2,
   Loader2,
   Printer,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +47,8 @@ export function PrintCover({
   widthMm,
   heightMm,
   coverType,
+  currentWrapMm,
+  canRecompose,
   autoPrint = false,
 }: {
   code: string;
@@ -52,10 +56,18 @@ export function PrintCover({
   widthMm: number;
   heightMm: number;
   coverType: "normal" | "coated";
+  /** Wrap actual del print-ready (mm a cada lado del cuerpo). Default
+      `depthMm + 3mm`, o el valor que el admin haya regenerado antes. */
+  currentWrapMm: number;
+  /** false si el modelo del pedido ya no existe en el catálogo (rename
+      de slug, etc.) — sin modelo no podemos saber el cuerpo y por tanto
+      no podemos recomponer con un wrap distinto. */
+  canRecompose: boolean;
   /** Si true, dispara window.print() automáticamente al cargar la imagen.
       Default false porque preferimos que el usuario revise mirror antes. */
   autoPrint?: boolean;
 }) {
+  const router = useRouter();
   const imgRef = useRef<HTMLImageElement>(null);
   const [imgState, setImgState] = useState<"loading" | "loaded" | "error">(
     "loading",
@@ -65,12 +77,55 @@ export function PrintCover({
   const [showCutMarks, setShowCutMarks] = useState(true);
   const [autoTriggered, setAutoTriggered] = useState(false);
 
+  // Override del wrap. Lo edita el admin si el cover real necesita
+  // mas/menos costado del que asumimos. Al "Regenerar" se dispara el
+  // server-side compose a las nuevas dimensiones.
+  const [wrapInput, setWrapInput] = useState(String(currentWrapMm));
+  const [recomposing, setRecomposing] = useState(false);
+  const [recomposeError, setRecomposeError] = useState<string | null>(null);
+  const [, startRefresh] = useTransition();
+
   useEffect(() => {
     if (!autoPrint || imgState !== "loaded" || autoTriggered) return;
     setAutoTriggered(true);
     const t = setTimeout(() => window.print(), 600);
     return () => clearTimeout(t);
   }, [autoPrint, imgState, autoTriggered]);
+
+  async function handleRecompose() {
+    const wrap = Number.parseInt(wrapInput, 10);
+    if (!Number.isFinite(wrap) || wrap < 0 || wrap > 30) {
+      setRecomposeError("Wrap inválido — usá un entero entre 0 y 30 mm.");
+      return;
+    }
+    setRecomposing(true);
+    setRecomposeError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/orders/${encodeURIComponent(code)}/recompose`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ wrapMm: wrap }),
+        },
+      );
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        throw new Error(data?.error ?? `HTTP ${res.status}`);
+      }
+      // Refrescamos la página: el server vuelve a leer el order con la
+      // nueva URL del print-ready y el nuevo widthMm/heightMm/customWrapMm.
+      startRefresh(() => router.refresh());
+    } catch (err) {
+      setRecomposeError(
+        err instanceof Error ? err.message : "Error regenerando",
+      );
+    } finally {
+      setRecomposing(false);
+    }
+  }
 
   // widthMm/heightMm vienen del pedido y YA incluyen el wrap (cuerpo del
   // teléfono + grosor + 3mm curvatura por lado). El compose en cliente y
@@ -220,6 +275,60 @@ export function PrintCover({
               derecho en el cover.
             </div>
           </div>
+
+          {/* Override del wrap (regenera el print-ready). Solo si el
+              modelo del pedido sigue en el catalogo; sin modelo no
+              sabemos cuanto es el cuerpo y no podemos componer. */}
+          {canRecompose && (
+            <div className="mt-3 rounded-xl border border-[color:var(--color-navy)]/10 bg-white p-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label
+                    htmlFor="wrap-mm"
+                    className="block font-mono text-[10px] uppercase tracking-[0.22em] text-[color:var(--color-navy)]/65"
+                  >
+                    Wrap (mm) por lado
+                  </label>
+                  <input
+                    id="wrap-mm"
+                    type="number"
+                    min={0}
+                    max={30}
+                    step={1}
+                    value={wrapInput}
+                    onChange={(e) => setWrapInput(e.target.value)}
+                    disabled={recomposing}
+                    className="mt-1 w-24 rounded-md border border-[color:var(--color-navy)]/15 bg-white px-2 py-1.5 font-mono text-[13px] text-[color:var(--color-navy)] focus:border-[color:var(--color-navy)] focus:outline-none disabled:opacity-50"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRecompose}
+                  disabled={
+                    recomposing || wrapInput === String(currentWrapMm)
+                  }
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[color:var(--color-navy)] px-4 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[color:var(--color-cream-soft)] transition-transform hover:-translate-y-0.5 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[color:var(--color-navy)]/40 disabled:hover:translate-y-0"
+                >
+                  {recomposing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  )}
+                  Regenerar print
+                </button>
+                <p className="font-mono text-[10px] leading-relaxed text-[color:var(--color-navy)]/55">
+                  Actual: <strong>{currentWrapMm}mm</strong>. Si el cover real
+                  envuelve más/menos costado, ajustá y regenerá. La imagen se
+                  recompone con sharp a 300 DPI usando los originales.
+                </p>
+              </div>
+              {recomposeError && (
+                <p className="mt-2 font-mono text-[11px] text-red-700">
+                  {recomposeError}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Página A4 con la imagen al tamaño exacto */}

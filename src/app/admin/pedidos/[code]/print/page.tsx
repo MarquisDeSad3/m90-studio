@@ -4,6 +4,10 @@ import { db } from "@/lib/db";
 import { orders } from "@/lib/db/schema";
 import { getCurrentAdmin } from "@/lib/admin-auth";
 import { PrintCover } from "@/components/admin/print-cover";
+import {
+  PHONE_MODELS,
+  WRAP_CURVATURE_MM,
+} from "@/lib/data/phone-models";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +59,15 @@ export default async function PrintOrderPage({
     );
   }
 
+  // Wrap actual del pedido: si el admin lo regeneró antes con un override,
+  // arrancamos desde ese valor; si no, usamos el default del modelo
+  // (depthMm + 3mm de curvatura). Si el modelo desapareció del catálogo
+  // (rename de slug), caemos a 0 (sin wrap).
+  const model = PHONE_MODELS.find((m) => m.slug === order.phoneModelSlug);
+  const defaultWrapMm = model ? model.depthMm + WRAP_CURVATURE_MM : 0;
+  const currentWrapMm = order.customWrapMm ?? defaultWrapMm;
+  const canRecompose = !!model;
+
   return (
     <PrintCover
       code={order.code}
@@ -62,6 +75,8 @@ export default async function PrintOrderPage({
       widthMm={order.widthMm ?? 75}
       heightMm={order.heightMm ?? 150}
       coverType={(order.coverType ?? "normal") as "normal" | "coated"}
+      currentWrapMm={currentWrapMm}
+      canRecompose={canRecompose}
     />
   );
 }

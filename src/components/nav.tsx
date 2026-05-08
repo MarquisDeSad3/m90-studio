@@ -48,7 +48,7 @@ export function Nav() {
               whileHover={{ rotate: -6, scale: 1.05 }}
               transition={{ type: "spring", stiffness: 400, damping: 18 }}
             >
-              <Logo variant="cream" className="text-[26px] md:text-[30px]" />
+              <Logo variant="navy" className="text-[26px] md:text-[30px]" />
             </motion.div>
           </a>
 
@@ -58,10 +58,10 @@ export function Nav() {
               <a
                 key={link.href}
                 href={link.href}
-                className="group relative text-[13px] uppercase tracking-[0.18em] text-[color:var(--color-cream-soft)]/85 transition-colors hover:text-[color:var(--color-cream-soft)]"
+                className="group relative text-[13px] uppercase tracking-[0.18em] text-[color:var(--color-navy)]/75 transition-colors hover:text-[color:var(--color-navy)]"
               >
                 {link.label}
-                <span className="absolute -bottom-1 left-0 h-px w-0 bg-[color:var(--color-cream-warm)] transition-all duration-300 group-hover:w-full" />
+                <span className="absolute -bottom-1 left-0 h-px w-0 bg-[color:var(--color-navy)] transition-all duration-300 group-hover:w-full" />
               </a>
             ))}
           </nav>
@@ -69,7 +69,7 @@ export function Nav() {
           {/* CTA der — siempre visible, navega al editor. */}
           <a
             href="/disenar"
-            className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-[color:var(--color-cream-soft)] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--color-navy)] shadow-[0_12px_30px_-12px_rgba(247,235,200,0.4)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-14px_rgba(247,235,200,0.55)] md:px-5 md:py-2.5 md:text-[12px]"
+            className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-[color:var(--color-navy)] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--color-cream-soft)] shadow-[0_12px_30px_-12px_rgba(1,27,83,0.4)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-14px_rgba(1,27,83,0.55)] md:px-5 md:py-2.5 md:text-[12px]"
           >
             <Sparkles className="hidden h-3.5 w-3.5 sm:block" />
             <span>Comenzar</span>
@@ -81,7 +81,7 @@ export function Nav() {
       {/* Reading progress bar */}
       <motion.div
         style={{ scaleX: progressScale }}
-        className="origin-left h-[2px] bg-[color:var(--color-cream-warm)]/40"
+        className="origin-left h-[2px] bg-[color:var(--color-navy)]/30"
       />
     </motion.header>
   );

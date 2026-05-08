@@ -21,10 +21,10 @@ import { ArrowDownRight } from "lucide-react";
  */
 
 const PHOTOS = [
-  { src: "/hero-photos/p1.svg", alt: "" },
-  { src: "/hero-photos/p2.svg", alt: "" },
-  { src: "/hero-photos/p3.svg", alt: "" },
-  { src: "/hero-photos/p4.svg", alt: "" },
+  { src: "/hero-photos/p1.jpg", alt: "" },
+  { src: "/hero-photos/p2.jpg", alt: "" },
+  { src: "/hero-photos/p3.jpg", alt: "" },
+  { src: "/hero-photos/p4.jpg", alt: "" },
 ];
 
 /** Posiciones FIJAS en pantalla donde aterrizan las fotos. Las fotos

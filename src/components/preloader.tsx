@@ -15,7 +15,7 @@ import { Logo } from "./logo";
  *   sobre el hero a medio cargar.
  */
 
-const HERO_PHOTOS = ["p1.svg", "p2.svg", "p3.svg", "p4.svg"];
+const HERO_PHOTOS = ["p1.jpg", "p2.jpg", "p3.jpg", "p4.jpg"];
 const FRAME_COUNT = HERO_PHOTOS.length;
 const CRITICAL_FRAMES = HERO_PHOTOS.length;
 const FRAME_PATH = (i: number) => `/hero-photos/${HERO_PHOTOS[i - 1]}`;

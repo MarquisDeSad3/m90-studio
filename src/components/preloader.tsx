@@ -5,25 +5,20 @@ import { useEffect, useRef, useState } from "react";
 import { Logo } from "./logo";
 
 /**
- * Preloader real: precarga los hero-frames (~1.3MB) en paralelo y solo
- * desaparece cuando los críticos están cargados. Muestra % real para que
+ * Preloader real: precarga las 4 fotos del hero (HeroPhotos) en paralelo
+ * y solo desaparece cuando todas están cargadas. Muestra % real para que
  * el usuario en Cuba sepa que está progresando aunque la conexión sea lenta.
  *
  * - SSR-friendly: renderiza al 0% antes de hidratar (sin flash).
- * - Cache hits: si los frames ya están en cache, termina al instante.
+ * - Cache hits: si las fotos ya están en cache, termina al instante.
  * - Bloquea scroll mientras está activo para que el usuario no scrollee
- *   sobre un canvas vacío.
+ *   sobre el hero a medio cargar.
  */
 
-const FRAME_COUNT = 57;
-/**
- * CRITICAL_FRAMES son los unicos que bloquean al usuario. El resto carga en
- * background mientras la pagina ya es interactiva. Crucial para Cuba: con
- * 16 frames la pagina abre en ~2-4s en 3G, no en 15-20s con los 96.
- */
-const CRITICAL_FRAMES = 16;
-const FRAME_PATH = (i: number) =>
-  `/hero-frames/${String(i).padStart(3, "0")}.webp`;
+const HERO_PHOTOS = ["p1.svg", "p2.svg", "p3.svg", "p4.svg"];
+const FRAME_COUNT = HERO_PHOTOS.length;
+const CRITICAL_FRAMES = HERO_PHOTOS.length;
+const FRAME_PATH = (i: number) => `/hero-photos/${HERO_PHOTOS[i - 1]}`;
 
 export function Preloader() {
   const [progress, setProgress] = useState(0);

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFC57A"/>
+      <stop offset="0.4" stop-color="#FF8E5C"/>
+      <stop offset="0.8" stop-color="#D9532E"/>
+      <stop offset="1" stop-color="#7B2D2A"/>
+    </linearGradient>
+    <linearGradient id="sea1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4D2A4A"/>
+      <stop offset="1" stop-color="#1F1230"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="800" fill="url(#sky1)"/>
+  <circle cx="300" cy="380" r="90" fill="#FFE3B0" opacity="0.95"/>
+  <rect x="0" y="540" width="600" height="260" fill="url(#sea1)"/>
+  <path d="M0 540 Q 150 510 300 540 T 600 540 L 600 580 L 0 580 Z" fill="#F4A574" opacity="0.7"/>
+  <!-- siluetas familia -->
+  <g fill="#0a0d1a">
+    <ellipse cx="240" cy="540" rx="22" ry="50"/>
+    <circle cx="240" cy="478" r="14"/>
+    <ellipse cx="290" cy="555" rx="14" ry="35"/>
+    <circle cx="290" cy="513" r="10"/>
+    <ellipse cx="345" cy="540" rx="20" ry="48"/>
+    <circle cx="345" cy="480" r="13"/>
+  </g>
+</svg>

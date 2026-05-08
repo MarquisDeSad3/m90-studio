@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFD9C2"/>
+      <stop offset="0.5" stop-color="#FFAFA0"/>
+      <stop offset="1" stop-color="#D9532E"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="800" fill="url(#sky3)"/>
+  <!-- sol grande poniente -->
+  <circle cx="300" cy="520" r="180" fill="#FFE99B" opacity="0.85"/>
+  <circle cx="300" cy="520" r="120" fill="#FFC57A"/>
+  <!-- mar / silueta -->
+  <rect x="0" y="600" width="600" height="200" fill="#1F1230"/>
+  <path d="M0 600 Q 150 580 300 600 T 600 600 L 600 640 L 0 640 Z" fill="#7B2D2A" opacity="0.6"/>
+  <!-- dos siluetas tomadas de la mano -->
+  <g fill="#0a0d1a">
+    <ellipse cx="245" cy="615" rx="18" ry="50"/>
+    <circle cx="245" cy="555" r="13"/>
+    <ellipse cx="320" cy="620" rx="16" ry="45"/>
+    <circle cx="320" cy="568" r="11"/>
+    <!-- línea brazo unido -->
+    <rect x="265" y="595" width="40" height="3"/>
+  </g>
+  <!-- pajaritos -->
+  <g fill="#0a0d1a" opacity="0.7">
+    <path d="M 100 220 Q 110 210 120 220 Q 130 210 140 220" fill="none" stroke="#0a0d1a" stroke-width="2"/>
+    <path d="M 420 180 Q 430 170 440 180 Q 450 170 460 180" fill="none" stroke="#0a0d1a" stroke-width="2"/>
+    <path d="M 480 280 Q 488 274 496 280 Q 504 274 512 280" fill="none" stroke="#0a0d1a" stroke-width="2"/>
+  </g>
+</svg>

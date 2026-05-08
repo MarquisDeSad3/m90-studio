@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky4" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#A8D4E8"/>
+      <stop offset="0.5" stop-color="#5BAACF"/>
+      <stop offset="1" stop-color="#1D3D8F"/>
+    </linearGradient>
+    <linearGradient id="grass4" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4F8B4F"/>
+      <stop offset="1" stop-color="#1F4530"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="800" fill="url(#sky4)"/>
+  <!-- nubes -->
+  <g fill="#FFFFFF" opacity="0.85">
+    <ellipse cx="120" cy="140" rx="55" ry="20"/>
+    <ellipse cx="160" cy="130" rx="40" ry="15"/>
+    <ellipse cx="450" cy="180" rx="60" ry="22"/>
+    <ellipse cx="500" cy="170" rx="35" ry="14"/>
+  </g>
+  <!-- sol -->
+  <circle cx="300" cy="320" r="55" fill="#FFE99B"/>
+  <!-- pasto -->
+  <path d="M 0 800 L 0 540 Q 300 480 600 540 L 600 800 Z" fill="url(#grass4)"/>
+  <!-- camino -->
+  <path d="M 280 800 Q 295 700 310 600 Q 320 540 320 540 L 280 540 Q 270 700 240 800 Z" fill="#C9A47A"/>
+  <!-- familia caminando vista de espaldas -->
+  <g fill="#0a0d1a">
+    <!-- adulto izq -->
+    <ellipse cx="270" cy="650" rx="18" ry="50"/>
+    <circle cx="270" cy="595" r="13"/>
+    <!-- niño en medio -->
+    <ellipse cx="305" cy="660" rx="11" ry="35"/>
+    <circle cx="305" cy="618" r="9"/>
+    <!-- adulto der -->
+    <ellipse cx="340" cy="650" rx="17" ry="48"/>
+    <circle cx="340" cy="595" r="13"/>
+    <!-- líneas brazos juntos -->
+    <rect x="288" y="625" width="20" height="2.5"/>
+    <rect x="316" y="625" width="20" height="2.5"/>
+  </g>
+  <!-- arboles -->
+  <g fill="#1F4530">
+    <ellipse cx="80" cy="510" rx="50" ry="60"/>
+    <rect x="73" y="540" width="14" height="50" fill="#5C3A1E"/>
+    <ellipse cx="520" cy="530" rx="55" ry="65"/>
+    <rect x="513" y="560" width="14" height="55" fill="#5C3A1E"/>
+  </g>
+</svg>

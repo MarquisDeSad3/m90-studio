@@ -55,16 +55,25 @@ function rowToModel(
     y nombre. El editor cliente y el homepage los muestran en este
     orden por default.
     Fallback defensivo: si la tabla está vacía (post-deploy antes de
-    seedear, o downtime de DB), usa el catálogo hardcoded del .ts. Así
-    el editor cliente nunca queda sin modelos. */
+    seedear) O si la DB no responde (sin DATABASE_URL en dev local,
+    Postgres caído, etc.), usa el catálogo hardcoded del .ts. Así el
+    editor cliente nunca queda sin modelos. */
 export async function getActivePhoneModels(): Promise<PhoneModelDef[]> {
-  const rows = await db
-    .select()
-    .from(phoneModels)
-    .where(eq(phoneModels.active, true))
-    .orderBy(desc(phoneModels.popularity), asc(phoneModels.name));
-  if (rows.length === 0) return PHONE_MODELS;
-  return rows.map(rowToModel);
+  try {
+    const rows = await db
+      .select()
+      .from(phoneModels)
+      .where(eq(phoneModels.active, true))
+      .orderBy(desc(phoneModels.popularity), asc(phoneModels.name));
+    if (rows.length === 0) return PHONE_MODELS;
+    return rows.map(rowToModel);
+  } catch (err) {
+    console.warn(
+      "[phone-models-db] DB unavailable, falling back to hardcoded catalog:",
+      err instanceof Error ? err.message : err,
+    );
+    return PHONE_MODELS;
+  }
 }
 
 /** Lee TODOS los modelos (incluyendo `active=false`) — para el panel
@@ -85,19 +94,27 @@ export async function getAllPhoneModelsForAdmin(): Promise<
 /** Busca un modelo por slug. Devuelve null si no existe o está inactivo
     (a menos que `includeInactive` sea true — útil para print/recompose
     de pedidos viejos cuyos modelos pueden haber sido desactivados).
-    Fallback al catálogo hardcoded si DB está vacía. */
+    Fallback al catálogo hardcoded si DB está vacía o no responde. */
 export async function getPhoneModelBySlug(
   slug: string,
   opts: { includeInactive?: boolean } = {},
 ): Promise<PhoneModelDef | null> {
-  const [row] = await db
-    .select()
-    .from(phoneModels)
-    .where(eq(phoneModels.slug, slug))
-    .limit(1);
-  if (!row) {
+  try {
+    const [row] = await db
+      .select()
+      .from(phoneModels)
+      .where(eq(phoneModels.slug, slug))
+      .limit(1);
+    if (!row) {
+      return PHONE_MODELS.find((m) => m.slug === slug) ?? null;
+    }
+    if (!opts.includeInactive && !row.active) return null;
+    return rowToModel(row);
+  } catch (err) {
+    console.warn(
+      "[phone-models-db] DB unavailable for getPhoneModelBySlug, falling back:",
+      err instanceof Error ? err.message : err,
+    );
     return PHONE_MODELS.find((m) => m.slug === slug) ?? null;
   }
-  if (!opts.includeInactive && !row.active) return null;
-  return rowToModel(row);
 }

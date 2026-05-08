@@ -1,5 +1,5 @@
 import { Nav } from "@/components/nav";
-import { HeroFrames } from "@/components/hero-frames";
+import { HeroPhotos } from "@/components/hero-photos";
 import { MarqueeBand } from "@/components/marquee-band";
 import { ProcessSimple } from "@/components/process-simple";
 import { LayoutsTicker } from "@/components/layouts-ticker";
@@ -12,7 +12,7 @@ export default function HomePage() {
     <>
       <Nav />
       <main>
-        <HeroFrames />
+        <HeroPhotos />
 
         <MarqueeBand
           variant="dark"

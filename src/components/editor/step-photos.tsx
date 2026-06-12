@@ -6,10 +6,11 @@ import { useEditor, usePhoneModel } from "@/lib/editor/store";
 import { useConfirm } from "@/components/ui/confirm-provider";
 import { findLayout } from "@/lib/data/layouts";
 import { getPrintDimensions } from "@/lib/data/phone-models";
-import { compressImageFile } from "@/lib/editor/image-utils";
+import { compressForUpload } from "@/lib/editor/image-utils";
 import {
   clearOriginal,
-  setOriginalFile,
+  setUploadSource,
+  getSourceDataUrl,
 } from "@/lib/editor/original-photos";
 import { cn } from "@/lib/utils";
 import { EditorCanvas } from "./editor-canvas";
@@ -24,6 +25,7 @@ export function StepPhotos() {
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [converting, setConverting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const layout = useMemo(
@@ -68,23 +70,8 @@ export function StepPhotos() {
       return;
     }
 
-    // HEIC del iPhone no se puede procesar en Chrome/Android. Avisar al
-    // usuario para que cambie el formato en su iPhone (Settings > Camera >
-    // Formats > Most Compatible) o use otra foto.
-    const isHeic =
-      /\.(heic|heif)$/i.test(file.name) ||
-      file.type === "image/heic" ||
-      file.type === "image/heif";
-    if (isHeic) {
-      setError(
-        "Foto en formato HEIC (iPhone). Cambiala a JPG en Ajustes > Cámara > Formatos > Más Compatible, o probá con otra foto.",
-      );
-      setActiveSlot(null);
-      return;
-    }
-
     // Limite de tamaño: si la foto pesa más de 30MB, probablemente es video
-    // o un movil viejo va a colgarse comprimiéndola. Avisar antes.
+    // o un movil viejo va a colgarse procesándola. Avisar antes.
     if (file.size > 30 * 1024 * 1024) {
       setError(
         "Foto demasiado pesada (más de 30MB). Probá con otra o reducí el tamaño desde tu teléfono.",
@@ -93,17 +80,54 @@ export function StepPhotos() {
       return;
     }
 
+    // HEIC del iPhone: Chrome/Android no lo decodifica nativo. En vez de
+    // RECHAZAR la foto (perdiamos clientes de iPhone), la convertimos a JPEG
+    // con heic2any (carga diferida — solo baja el wasm si hace falta).
+    const isHeic =
+      /\.(heic|heif)$/i.test(file.name) ||
+      file.type === "image/heic" ||
+      file.type === "image/heif";
+
     setUploading(true);
     setError(null);
     try {
-      // Guardamos la File original en memoria para mandarla al backend con
-      // calidad maxima al submitear. La version comprimida es solo para el
-      // editor visual (crop preview).
-      setOriginalFile(activeSlot, file);
-      const dataUrl = await compressImageFile(file);
+      let workingFile = file;
+      if (isHeic) {
+        setConverting(true);
+        try {
+          const heic2any = (await import("heic2any")).default;
+          const out = await heic2any({
+            blob: file,
+            toType: "image/jpeg",
+            quality: 0.9,
+          });
+          const jpegBlob = Array.isArray(out) ? out[0] : out;
+          workingFile = new File(
+            [jpegBlob],
+            file.name.replace(/\.(heic|heif)$/i, ".jpg"),
+            { type: "image/jpeg" },
+          );
+        } catch (convErr) {
+          console.error("heic2any failed:", convErr);
+          clearOriginal(activeSlot);
+          setError(
+            "No pude convertir la foto de iPhone (HEIC). Probá con una captura de pantalla, o cambiá el formato a JPG en Ajustes > Cámara > Más Compatible.",
+          );
+          setActiveSlot(null);
+          return;
+        } finally {
+          setConverting(false);
+        }
+      }
+
+      // Comprimimos UNA vez a ~2000px/1MB (orientada, sin EXIF). El MISMO
+      // blob se sube al backend (rapido en 3G) y su dataURL alimenta el
+      // cropper — asi el cliente recorta exactamente lo que se imprime.
+      const { blob, dataUrl } = await compressForUpload(workingFile);
+      setUploadSource(activeSlot, { blob, dataUrl });
       setCropSrc(dataUrl);
     } catch (err) {
-      console.error("compressImageFile failed:", err);
+      console.error("compressForUpload failed:", err);
       clearOriginal(activeSlot);
       setError(
         "No pude procesar la imagen. Probá con otra (formato JPG o PNG).",
@@ -117,9 +141,12 @@ export function StepPhotos() {
   function onSlotClick(slotIndex: number) {
     const existing = state.photos.find((p) => p.slotIndex === slotIndex);
     if (existing) {
-      // Reabrir crop modal con la imagen ya guardada para re-recortar
+      // Reabrir el cropper SIEMPRE sobre la fuente completa (no sobre el
+      // recorte previo) — si no, recortar de nuevo recorta-sobre-recorte y
+      // el cropFraction que se manda al server queda inválido (print roto).
+      // Si perdimos la fuente (recarga de pagina) caemos al recorte previo.
       setActiveSlot(slotIndex);
-      setCropSrc(existing.src);
+      setCropSrc(getSourceDataUrl(slotIndex) ?? existing.src);
     } else {
       openSlotPicker(slotIndex);
     }
@@ -214,7 +241,7 @@ export function StepPhotos() {
         {uploading && (
           <div className="flex items-center gap-2 text-[12px] text-[color:var(--color-navy)]/65 md:text-[13px]">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Comprimiendo imagen…
+            {converting ? "Convirtiendo foto de iPhone…" : "Comprimiendo imagen…"}
           </div>
         )}
       </div>

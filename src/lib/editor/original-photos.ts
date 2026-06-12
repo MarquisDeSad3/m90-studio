@@ -1,36 +1,52 @@
 "use client";
 
 /**
- * Cache en memoria de las Files originales que el cliente subio.
- * NO va a localStorage (Files no se serializan). Persiste solo durante la
- * sesion del navegador. Al submitear el pedido, mandamos la File original
- * al backend para guardar calidad maxima.
+ * Cache en memoria de la imagen "fuente" de cada slot: el blob comprimido
+ * listo-para-subir (≤2000px, ~1MB, orientado) Y su dataURL.
  *
- * Si el usuario recarga la pagina, perdemos el original — caemos a la
- * version cropeada (que sigue estando en state.photos[].src dataURL,
- * comprimida pero printable a tamaño normal).
+ * NO va a localStorage (los blobs/dataURLs pesados llenarian la cuota de
+ * ~5MB). Persiste solo durante la sesion del navegador. Al submitear el
+ * pedido mandamos el blob al backend; el server le aplica el cropFraction
+ * con sharp para componer el print-ready 300 DPI.
+ *
+ * Antes acá se guardaba la File ORIGINAL cruda (hasta 30MB) y se subia tal
+ * cual → el pedido se quedaba "cargando" en la red movil cubana. Ahora se
+ * guarda la version comprimida: mismo encuadre, fraccion de tamaño.
+ *
+ * Si el usuario recarga la pagina perdemos esta fuente — caemos a la
+ * version cropeada (que sigue en state.photos[].src dataURL).
  */
 
-const originals = new Map<number, File>();
+type SlotSource = { blob: Blob; dataUrl: string };
 
-export function setOriginalFile(slotIndex: number, file: File) {
-  originals.set(slotIndex, file);
+const sources = new Map<number, SlotSource>();
+
+export function setUploadSource(slotIndex: number, source: SlotSource) {
+  sources.set(slotIndex, source);
 }
 
-export function getOriginalFile(slotIndex: number): File | undefined {
-  return originals.get(slotIndex);
+/** Blob comprimido para mandar en el FormData (o undefined si se perdio). */
+export function getUploadBlob(slotIndex: number): Blob | undefined {
+  return sources.get(slotIndex)?.blob;
+}
+
+/** dataURL de la fuente COMPLETA (sin recortar) — para reabrir el cropper
+    al re-editar una foto ya cargada, asi el recorte se hace siempre sobre
+    la imagen entera y no sobre un recorte previo. */
+export function getSourceDataUrl(slotIndex: number): string | undefined {
+  return sources.get(slotIndex)?.dataUrl;
 }
 
 export function clearOriginal(slotIndex: number) {
-  originals.delete(slotIndex);
+  sources.delete(slotIndex);
 }
 
 export function clearAllOriginals() {
-  originals.clear();
+  sources.clear();
 }
 
 /**
- * Convierte un dataURL a Blob — fallback cuando no tenemos el original
+ * Convierte un dataURL a Blob — fallback cuando no tenemos la fuente
  * (ej. el usuario recargo la pagina antes de submitear).
  */
 export function dataUrlToBlob(dataUrl: string): Blob {

@@ -16,7 +16,7 @@ import { getPrintDimensions } from "@/lib/data/phone-models";
 import { composeFinalCover } from "@/lib/editor/image-utils";
 import {
   dataUrlToBlob,
-  getOriginalFile,
+  getUploadBlob,
 } from "@/lib/editor/original-photos";
 import { cn, whatsappUrl } from "@/lib/utils";
 import { CoverPreview } from "@/components/cover-preview";
@@ -289,11 +289,13 @@ export function StepConfirm() {
       );
 
       for (const p of state.photos) {
-        const original = getOriginalFile(p.slotIndex);
-        if (original) {
-          fd.append(`photo_${p.slotIndex}`, original, original.name);
+        const source = getUploadBlob(p.slotIndex);
+        if (source) {
+          // Fuente comprimida (~1MB, orientada). El server le aplica el
+          // cropFraction con sharp para el print-ready 300 DPI.
+          fd.append(`photo_${p.slotIndex}`, source, `photo-${p.slotIndex}.jpg`);
         } else {
-          // Fallback: si perdimos el original (recargo de pagina), mandamos
+          // Fallback: si perdimos la fuente (recargo de pagina), mandamos
           // la version cropeada como blob — calidad menor pero printable.
           fd.append(
             `photo_${p.slotIndex}`,
@@ -302,18 +304,18 @@ export function StepConfirm() {
           );
         }
         // Cropped — version aplicada por el cliente. El server la guarda
-        // separada del original asi el admin tiene ambas: original sin
-        // tocar + recorte tal cual lo vio el cliente. Util como backup si
-        // el server compose falla, o para descargar exactamente lo que el
-        // cliente eligio.
+        // separada asi el admin tiene ambas: fuente + recorte tal cual lo
+        // vio el cliente. Backup si el server compose falla.
         fd.append(
           `cropped_${p.slotIndex}`,
           dataUrlToBlob(p.src),
           `cropped-${p.slotIndex}.jpg`,
         );
       }
-      // El mismo blob (200 DPI) sirve como preview Y print-ready (por ahora;
-      // en server-side compose el printReady lo va a regenerar el backend).
+      // Preview compuesto (200 DPI, liviano) para el thumbnail del admin/
+      // Telegram. El server recompone el printReady a 300 DPI desde las
+      // fuentes con sharp; mandamos este mismo blob como fallback por si el
+      // compose del server falla (asi el admin siempre tiene algo printable).
       fd.append("preview", composed.blob, "preview.jpg");
       fd.append("printReady", composed.blob, "print-ready.jpg");
 

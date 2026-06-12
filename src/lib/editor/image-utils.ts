@@ -17,6 +17,35 @@ export async function compressImageFile(file: File): Promise<string> {
   return await fileToDataUrl(compressed);
 }
 
+/**
+ * Comprime la foto a una version "lista para subir Y para imprimir":
+ * - cap ~2000px lado mayor (suficiente para 300 DPI en cualquier modelo:
+ *   el case mas grande, Pro Max 77.6x160.7mm, necesita ~1898px de alto)
+ * - cap ~1MB para que el upload NO se cuelgue en la red movil cubana
+ *   (antes se subia el File ORIGINAL crudo, hasta 30MB por foto → el
+ *   pedido se quedaba "cargando" hasta el timeout de 90s)
+ * - fileType jpeg → el canvas NORMALIZA la orientacion EXIF y borra el
+ *   tag, asi el server (sharp) ya no tiene que rotar y el cropFraction
+ *   calculado sobre esta imagen coincide pixel a pixel con el original
+ *   que se imprime (antes: crop torcido en fotos de telefono).
+ *
+ * Devuelve el Blob (para el FormData) Y el dataURL (para mostrarlo en el
+ * cropper) — asi el cliente recorta EXACTAMENTE la misma imagen que se sube.
+ */
+export async function compressForUpload(
+  file: File,
+): Promise<{ blob: Blob; dataUrl: string }> {
+  const compressed = await imageCompression(file, {
+    maxSizeMB: 1,
+    maxWidthOrHeight: 2000,
+    useWebWorker: true,
+    fileType: "image/jpeg",
+    initialQuality: 0.82,
+  });
+  const dataUrl = await fileToDataUrl(compressed);
+  return { blob: compressed, dataUrl };
+}
+
 export function fileToDataUrl(file: File | Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

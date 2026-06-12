@@ -125,16 +125,30 @@ function fail(status: number, message: string, code?: string) {
 }
 
 /**
- * Genera un código humano: M90-NNNN basado en count + offset.
- * Evita colisión usando subquery dentro del INSERT (Postgres único de
- * generar IDs en escenarios de baja concurrencia es fine).
+ * Genera el próximo código humano M90-NNNN.
+ *
+ * Se deriva del MAX número existente (no de count(*)): count colisiona si
+ * se borra un pedido — count baja y reusa un código ya emitido →
+ * violación de orders_code_uq → 500 en CADA pedido nuevo para siempre.
+ * MAX es robusto a huecos. Empezamos en M90-1001.
+ *
+ * Aun así, bajo concurrencia dos pedidos simultáneos pueden leer el mismo
+ * MAX; por eso el INSERT se reintenta ante unique violation (ver POST).
  */
-async function generateOrderCode(): Promise<string> {
-  const [{ count }] = await db.execute<{ count: number }>(
-    sql`SELECT count(*)::int as count FROM orders`,
+async function nextOrderCode(): Promise<string> {
+  const [{ n }] = await db.execute<{ n: number }>(
+    sql`SELECT COALESCE(MAX((substring(code from 'M90-0*([0-9]+)$'))::int), 1000) + 1 AS n FROM orders`,
   );
-  const next = (count ?? 0) + 1001; // empezamos en M90-1001
-  return `M90-${String(next).padStart(4, "0")}`;
+  return `M90-${String(n ?? 1001).padStart(4, "0")}`;
+}
+
+/** Postgres unique_violation (orders_code_uq). postgres-js expone `.code`. */
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { code?: string }).code === "23505"
+  );
 }
 
 /* ============================================================
@@ -257,40 +271,51 @@ export async function POST(req: Request) {
 
   // 3. Generar código + insertar en DB. El precio sale de cover_pricing
   //    (editable desde admin) y se snapshotea en el pedido.
-  const code = await generateOrderCode();
   const submittedAt = new Date();
   const price = await getCoverPrice(parsed.coverType);
 
   try {
-    const [order] = await db
-      .insert(orders)
-      .values({
-        code,
-        customerPhone: parsed.customerPhone,
-        customerName: parsed.customerName,
-        phoneModelSlug: parsed.phoneModelSlug,
-        phoneModelName: parsed.phoneModelName,
-        layoutId: parsed.layoutId,
-        layoutName: parsed.layoutName,
-        widthMm:
-          parsed.widthMm != null ? Math.round(parsed.widthMm) : null,
-        heightMm:
-          parsed.heightMm != null ? Math.round(parsed.heightMm) : null,
-        cornerRadiusMm:
-          parsed.cornerRadiusMm != null
-            ? Math.round(parsed.cornerRadiusMm)
-            : null,
-        cameraBox: parsed.cameraBox ?? null,
-        status: "submitted",
-        coverType: parsed.coverType,
-        previewUrl,
-        printReadyUrl,
-        customerNotes: parsed.customerNotes || null,
-        priceCup: price.priceCup,
-        priceUsdCents: price.priceUsdCents,
-        submittedAt,
-      })
-      .returning();
+    const orderValues = {
+      customerPhone: parsed.customerPhone,
+      customerName: parsed.customerName,
+      phoneModelSlug: parsed.phoneModelSlug,
+      phoneModelName: parsed.phoneModelName,
+      layoutId: parsed.layoutId,
+      layoutName: parsed.layoutName,
+      widthMm: parsed.widthMm != null ? Math.round(parsed.widthMm) : null,
+      heightMm: parsed.heightMm != null ? Math.round(parsed.heightMm) : null,
+      cornerRadiusMm:
+        parsed.cornerRadiusMm != null
+          ? Math.round(parsed.cornerRadiusMm)
+          : null,
+      cameraBox: parsed.cameraBox ?? null,
+      status: "submitted" as const,
+      coverType: parsed.coverType,
+      previewUrl,
+      printReadyUrl,
+      customerNotes: parsed.customerNotes || null,
+      priceCup: price.priceCup,
+      priceUsdCents: price.priceUsdCents,
+      submittedAt,
+    };
+
+    // Insert con reintento: si dos pedidos simultáneos calculan el mismo
+    // código, el unique index orders_code_uq rebota uno; recomputamos el
+    // código y reintentamos en vez de devolver 500.
+    let order: typeof orders.$inferSelect | undefined;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const code = await nextOrderCode();
+      try {
+        [order] = await db
+          .insert(orders)
+          .values({ ...orderValues, code })
+          .returning();
+        break;
+      } catch (e) {
+        if (isUniqueViolation(e) && attempt < 5) continue;
+        throw e;
+      }
+    }
 
     if (!order) {
       return fail(500, "No pude crear el pedido", "DB_INSERT");

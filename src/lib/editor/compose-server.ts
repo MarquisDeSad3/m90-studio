@@ -75,36 +75,36 @@ export async function composeOrderPrintReady(opts: {
             `No metadata para foto slot ${photo.slotIndex} (${photo.originalPath})`,
           );
         }
+        // EXIF: metadata() devuelve las dimensiones SIN auto-orientar, pero
+        // extract() corre DESPUES de .rotate() (imagen ya orientada). Si la
+        // foto tiene orientación 5-8 (girada 90°), ancho y alto se
+        // intercambian al rotar — usamos las dimensiones POST-rotación para
+        // que el cropFraction (en coords ya orientadas, como las vio el
+        // cliente) caiga donde corresponde. Sin esto el recorte sale corrido
+        // en fotos de teléfono.
+        const orientation = meta.orientation ?? 1;
+        const swapped = orientation >= 5;
+        const srcW = swapped ? meta.height : meta.width;
+        const srcH = swapped ? meta.width : meta.height;
+
         // Recortar al cropFraction. Re-instanciar sharp para que extract
         // funcione con el mismo input despues de pedir metadata (sharp
         // pipelines no se pueden reutilizar tras un await intermedio).
         const cropX = Math.max(
           0,
-          Math.min(
-            meta.width - 1,
-            Math.round(photo.cropFraction.x * meta.width),
-          ),
+          Math.min(srcW - 1, Math.round(photo.cropFraction.x * srcW)),
         );
         const cropY = Math.max(
           0,
-          Math.min(
-            meta.height - 1,
-            Math.round(photo.cropFraction.y * meta.height),
-          ),
+          Math.min(srcH - 1, Math.round(photo.cropFraction.y * srcH)),
         );
         const cropW = Math.max(
           1,
-          Math.min(
-            meta.width - cropX,
-            Math.round(photo.cropFraction.width * meta.width),
-          ),
+          Math.min(srcW - cropX, Math.round(photo.cropFraction.width * srcW)),
         );
         const cropH = Math.max(
           1,
-          Math.min(
-            meta.height - cropY,
-            Math.round(photo.cropFraction.height * meta.height),
-          ),
+          Math.min(srcH - cropY, Math.round(photo.cropFraction.height * srcH)),
         );
         pipeline = sharp(photo.originalPath, { failOn: "none" })
           .rotate()

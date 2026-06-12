@@ -6,11 +6,11 @@ import { useEditor, usePhoneModel } from "@/lib/editor/store";
 import { useConfirm } from "@/components/ui/confirm-provider";
 import { findLayout } from "@/lib/data/layouts";
 import { getPrintDimensions } from "@/lib/data/phone-models";
-import { compressForUpload } from "@/lib/editor/image-utils";
+import { compressImageFile } from "@/lib/editor/image-utils";
 import {
   clearOriginal,
   setUploadSource,
-  getSourceDataUrl,
+  getDisplayUrl,
 } from "@/lib/editor/original-photos";
 import { cn } from "@/lib/utils";
 import { EditorCanvas } from "./editor-canvas";
@@ -120,12 +120,13 @@ export function StepPhotos() {
         }
       }
 
-      // Comprimimos UNA vez a ~2000px/1MB (orientada, sin EXIF). El MISMO
-      // blob se sube al backend (rapido en 3G) y su dataURL alimenta el
-      // cropper — asi el cliente recorta exactamente lo que se imprime.
-      const { blob, dataUrl } = await compressForUpload(workingFile);
-      setUploadSource(activeSlot, { blob, dataUrl });
-      setCropSrc(dataUrl);
+      // Guardamos el File ORIGINAL intacto (se sube en máxima calidad) y
+      // generamos una versión comprimida SOLO para mostrar en el cropper.
+      // El cropFraction (0..1) que sale del cropper es invariante a la
+      // resolución, así que mapea igual al original al imprimir.
+      const displayUrl = await compressImageFile(workingFile);
+      setUploadSource(activeSlot, { file: workingFile, displayUrl });
+      setCropSrc(displayUrl);
     } catch (err) {
       console.error("compressForUpload failed:", err);
       clearOriginal(activeSlot);
@@ -146,7 +147,7 @@ export function StepPhotos() {
       // el cropFraction que se manda al server queda inválido (print roto).
       // Si perdimos la fuente (recarga de pagina) caemos al recorte previo.
       setActiveSlot(slotIndex);
-      setCropSrc(getSourceDataUrl(slotIndex) ?? existing.src);
+      setCropSrc(getDisplayUrl(slotIndex) ?? existing.src);
     } else {
       openSlotPicker(slotIndex);
     }

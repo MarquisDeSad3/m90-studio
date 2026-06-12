@@ -13,10 +13,10 @@ import { useEditor, usePhoneModel } from "@/lib/editor/store";
 import { useConfirm } from "@/components/ui/confirm-provider";
 import { findLayout } from "@/lib/data/layouts";
 import { getPrintDimensions } from "@/lib/data/phone-models";
-import { composeFinalCover } from "@/lib/editor/image-utils";
+import { composeFinalCover, compressForUpload } from "@/lib/editor/image-utils";
 import {
   dataUrlToBlob,
-  getUploadBlob,
+  getOriginalFile,
 } from "@/lib/editor/original-photos";
 import { cn, whatsappUrl } from "@/lib/utils";
 import { CoverPreview } from "@/components/cover-preview";
@@ -27,6 +27,53 @@ type Composed = {
   width: number;
   height: number;
 };
+
+/** Si la subida no termina en este tiempo, asumimos conexión lenta y
+    pasamos a comprimir la imagen para reintentar. */
+const SLOW_UPLOAD_MS = 18_000;
+
+/**
+ * Sube el pedido por XHR (fetch no expone progreso de subida). Devuelve la
+ * promesa con la respuesta y un abort() para cancelar.
+ */
+function uploadOrder(
+  fd: FormData,
+  onProgress: (pct: number) => void,
+): { promise: Promise<{ code: string; adminUrl: string }>; abort: () => void } {
+  const xhr = new XMLHttpRequest();
+  const promise = new Promise<{ code: string; adminUrl: string }>(
+    (resolve, reject) => {
+      xhr.open("POST", "/api/orders");
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          onProgress(Math.min(100, Math.round((e.loaded / e.total) * 100)));
+        }
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText));
+          } catch {
+            reject(new Error("Respuesta inválida del servidor"));
+          }
+        } else {
+          let msg = `HTTP ${xhr.status}`;
+          try {
+            const body = JSON.parse(xhr.responseText);
+            if (body?.error) msg = body.error;
+          } catch {
+            /* respuesta sin JSON */
+          }
+          reject(new Error(msg));
+        }
+      };
+      xhr.onerror = () => reject(new Error("Error de red"));
+      xhr.onabort = () => reject(new Error("aborted"));
+      xhr.send(fd);
+    },
+  );
+  return { promise, abort: () => xhr.abort() };
+}
 
 export function StepConfirm() {
   const { state, dispatch } = useEditor();
@@ -46,6 +93,10 @@ export function StepConfirm() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [touched, setTouched] = useState(false);
   const [sharing, setSharing] = useState(false);
+  /** Progreso de subida 0..100 (barra para que el cliente no se desespere). */
+  const [uploadPct, setUploadPct] = useState(0);
+  /** true cuando la conexión se demoró y caímos a comprimir la imagen. */
+  const [slowNotice, setSlowNotice] = useState(false);
 
   // Precios runtime (admin los puede cambiar). Default a los seed iniciales
   // si la API esta caida — el editor no debe quedar bloqueado por eso.
@@ -223,9 +274,15 @@ export function StepConfirm() {
   }
 
   /**
-   * Sube el pedido al backend (originales + preview), recibe el orderCode y
-   * abre WhatsApp con un mensaje pre-llenado que incluye el codigo + URL del
-   * admin para que M90 vea las fotos en alta resolucion.
+   * Sube el pedido al backend y abre WhatsApp con el código + URL del admin.
+   *
+   * Estrategia (decidida con M90): MEJOR CALIDAD POSIBLE primero.
+   *   1. Intento 1: sube los archivos ORIGINALES tal cual (máxima calidad
+   *      para imprimir), con barra de progreso real para que el cliente no
+   *      se desespere.
+   *   2. Si la subida se demora más de lo normal (conexión lenta) o falla
+   *      por peso (413), avisamos "se demoró tu conexión, comprimimos la
+   *      imagen" y reintentamos con la versión comprimida (~2000px/1MB).
    */
   async function handleShare() {
     if (!composed || !layout) return;
@@ -236,27 +293,27 @@ export function StepConfirm() {
     }
     setSharing(true);
     setComposeError(null);
+    setUploadPct(0);
+    setSlowNotice(false);
 
-    try {
-      // Reusamos el blob ya generado en useEffect (200 DPI). NO recomponer
-      // aca — el doble compose colgaba mobiles viejos.
-      // Construimos el FormData con originales + preview + datos del pedido
+    const composedBlob = composed.blob;
+
+    // Arma el FormData. compress=false → sube los originales (máxima
+    // calidad). compress=true → comprime cada original al vuelo para
+    // conexiones lentas.
+    async function buildFormData(compress: boolean): Promise<FormData> {
       const fd = new FormData();
       fd.append(
         "data",
         JSON.stringify({
           phoneModelSlug: model?.slug ?? "unknown",
-          // Si el cliente eligio un alias específico (ej. "iPhone 13" dentro
-          // del grupo "iPhone 12 / 13 / 14"), mandamos ese — más informativo
-          // en WhatsApp y en el admin que el nombre del grupo.
+          // Si el cliente eligió un alias específico (ej. "iPhone 13" dentro
+          // del grupo "iPhone 12 / 13 / 14"), mandamos ese — más informativo.
           phoneModelName:
             state.modelDisplayName ?? model?.name ?? "Modelo no especificado",
           coverType: state.coverType,
-          layoutId: layout.id,
-          layoutName: layout.name,
-          // Dimensiones del area de impresion: cuerpo + 2*(grosor + 3mm
-          // de curvatura) en cada eje. Esto incluye el wrap que envuelve
-          // los costados del cover en la sublimación.
+          layoutId: layout!.id,
+          layoutName: layout!.name,
           widthMm: printDims.widthMm,
           heightMm: printDims.heightMm,
           cornerRadiusMm: model?.cornerRadiusMm,
@@ -274,8 +331,7 @@ export function StepConfirm() {
           photos: state.photos.map((p) => ({
             slotIndex: p.slotIndex,
             // cropFraction (0..1) describe el recorte de forma indep de la
-            // resolucion. El server lo aplica al ORIGINAL en max calidad
-            // con sharp cuando compone el print-ready.
+            // resolución. El server lo aplica al original con sharp.
             transform: p.cropFraction
               ? {
                   crop: { x: 0, y: 0 },
@@ -289,23 +345,28 @@ export function StepConfirm() {
       );
 
       for (const p of state.photos) {
-        const source = getUploadBlob(p.slotIndex);
-        if (source) {
-          // Fuente comprimida (~1MB, orientada). El server le aplica el
-          // cropFraction con sharp para el print-ready 300 DPI.
-          fd.append(`photo_${p.slotIndex}`, source, `photo-${p.slotIndex}.jpg`);
+        const original = getOriginalFile(p.slotIndex);
+        if (original) {
+          if (compress) {
+            const { blob } = await compressForUpload(original);
+            fd.append(`photo_${p.slotIndex}`, blob, `photo-${p.slotIndex}.jpg`);
+          } else {
+            fd.append(
+              `photo_${p.slotIndex}`,
+              original,
+              original.name || `photo-${p.slotIndex}.jpg`,
+            );
+          }
         } else {
-          // Fallback: si perdimos la fuente (recargo de pagina), mandamos
-          // la version cropeada como blob — calidad menor pero printable.
+          // Fallback: perdimos el original (recarga de página). Mandamos la
+          // versión cropeada — calidad menor pero printable.
           fd.append(
             `photo_${p.slotIndex}`,
             dataUrlToBlob(p.src),
             `slot-${p.slotIndex}.jpg`,
           );
         }
-        // Cropped — version aplicada por el cliente. El server la guarda
-        // separada asi el admin tiene ambas: fuente + recorte tal cual lo
-        // vio el cliente. Backup si el server compose falla.
+        // Cropped — el recorte tal cual lo vio el cliente (backup admin).
         fd.append(
           `cropped_${p.slotIndex}`,
           dataUrlToBlob(p.src),
@@ -313,49 +374,46 @@ export function StepConfirm() {
         );
       }
       // Preview compuesto (200 DPI, liviano) para el thumbnail del admin/
-      // Telegram. El server recompone el printReady a 300 DPI desde las
-      // fuentes con sharp; mandamos este mismo blob como fallback por si el
-      // compose del server falla (asi el admin siempre tiene algo printable).
-      fd.append("preview", composed.blob, "preview.jpg");
-      fd.append("printReady", composed.blob, "print-ready.jpg");
+      // Telegram + fallback de impresión si el compose del server falla.
+      fd.append("preview", composedBlob, "preview.jpg");
+      fd.append("printReady", composedBlob, "print-ready.jpg");
+      return fd;
+    }
 
-      // Timeout 90s — si el upload se traba en 3G cubano, falla en lugar
-      // de quedarse pegado infinitamente con el spinner
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 90_000);
-      let res: Response;
+    try {
+      let result: { code: string; adminUrl: string };
+
+      // ---- Intento 1: máxima calidad, con barra de progreso real ----
+      const fd1 = await buildFormData(false);
+      const up1 = uploadOrder(fd1, setUploadPct);
+      // Si en SLOW_UPLOAD_MS no terminó, asumimos conexión lenta: cancelamos
+      // y pasamos a comprimir (mejor eso que dejarlo "cargando" infinito).
+      const slowTimer = setTimeout(() => up1.abort(), SLOW_UPLOAD_MS);
       try {
-        res = await fetch("/api/orders", {
-          method: "POST",
-          body: fd,
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timer);
+        result = await up1.promise;
+        clearTimeout(slowTimer);
+      } catch {
+        clearTimeout(slowTimer);
+        // Cualquier fallo del intento 1 (lentitud, 413 por peso, red) →
+        // avisamos y reintentamos comprimiendo la imagen.
+        setSlowNotice(true);
+        setUploadPct(0);
+        const fd2 = await buildFormData(true);
+        const up2 = uploadOrder(fd2, setUploadPct);
+        result = await up2.promise;
       }
 
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.error ?? `HTTP ${res.status}`);
-      }
-
-      const result: { code: string; adminUrl: string } = await res.json();
       const message = buildWhatsAppMessage(result.code, result.adminUrl);
       const url = whatsappUrl(message);
-
-      // No abrimos WhatsApp con window.open: los popup blockers movil lo
-      // bloquean despues de un await fetch porque pierden la "user gesture
-      // chain". En su lugar mostramos pantalla de exito con un link <a>
-      // directo a wa.me — el click del usuario ahi SI abre WhatsApp.
+      // No usamos window.open (popup blockers móviles lo bloquean tras await):
+      // mostramos pantalla de éxito con un link <a> directo a wa.me.
       setSubmitted({ code: result.code, waUrl: url });
     } catch (err) {
       console.error("[step-confirm] order submit failed:", err);
       const msg =
-        err instanceof Error && err.name === "AbortError"
-          ? "El envío tardó demasiado. Probá de nuevo con mejor conexión."
-          : err instanceof Error
-            ? `No pude enviar el pedido: ${err.message}`
-            : "No pude enviar el pedido. Probá de nuevo.";
+        err instanceof Error
+          ? `No pude enviar el pedido: ${err.message}`
+          : "No pude enviar el pedido. Probá de nuevo.";
       setComposeError(msg);
     } finally {
       setSharing(false);
@@ -631,8 +689,32 @@ export function StepConfirm() {
               ) : (
                 <MessageCircle className="h-4 w-4" />
               )}
-              <span>Pedir por WhatsApp</span>
+              <span>
+                {sharing
+                  ? slowNotice
+                    ? "Comprimiendo…"
+                    : `Subiendo… ${uploadPct}%`
+                  : "Pedir por WhatsApp"}
+              </span>
             </button>
+
+            {/* Barra de progreso de subida — para que el cliente vea que algo
+                pasa y no se desespere / cierre la pantalla. */}
+            {sharing && (
+              <div className="flex flex-col gap-1.5">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--color-navy)]/10">
+                  <div
+                    className="h-full rounded-full bg-[#25D366] transition-all duration-300"
+                    style={{ width: `${Math.max(4, uploadPct)}%` }}
+                  />
+                </div>
+                <p className="text-center text-[11px] leading-snug text-[color:var(--color-navy)]/55">
+                  {slowNotice
+                    ? "Tu conexión se demoró — comprimimos tu imagen para que suba más rápido. No cierres esta pantalla."
+                    : "Subiendo tu pedido en alta calidad… no cierres esta pantalla."}
+                </p>
+              </div>
+            )}
 
             <button
               onClick={triggerDownload}

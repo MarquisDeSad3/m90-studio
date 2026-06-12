@@ -1,23 +1,23 @@
 "use client";
 
 /**
- * Cache en memoria de la imagen "fuente" de cada slot: el blob comprimido
- * listo-para-subir (≤2000px, ~1MB, orientado) Y su dataURL.
+ * Cache en memoria de la fuente de cada slot:
+ *  - `file`: el archivo ORIGINAL del cliente (máxima calidad). Es lo que se
+ *    sube por defecto — queremos imprimir con la mejor calidad posible.
+ *  - `displayUrl`: una versión comprimida (dataURL) SOLO para mostrar en el
+ *    cropper y para re-editar. No se sube.
  *
- * NO va a localStorage (los blobs/dataURLs pesados llenarian la cuota de
- * ~5MB). Persiste solo durante la sesion del navegador. Al submitear el
- * pedido mandamos el blob al backend; el server le aplica el cropFraction
- * con sharp para componer el print-ready 300 DPI.
+ * NO va a localStorage (un File no se serializa y los dataURL pesados
+ * llenarían la cuota de ~5MB). Persiste solo durante la sesión del navegador.
  *
- * Antes acá se guardaba la File ORIGINAL cruda (hasta 30MB) y se subia tal
- * cual → el pedido se quedaba "cargando" en la red movil cubana. Ahora se
- * guarda la version comprimida: mismo encuadre, fraccion de tamaño.
+ * Al submitear: se sube el `file` original. Si la conexión está lenta, el
+ * step-confirm comprime ese mismo file al vuelo y reintenta (ver handleShare).
  *
- * Si el usuario recarga la pagina perdemos esta fuente — caemos a la
- * version cropeada (que sigue en state.photos[].src dataURL).
+ * Si el usuario recarga la página perdemos la fuente — caemos a la versión
+ * cropeada que quedó en state.photos[].src (dataURL).
  */
 
-type SlotSource = { blob: Blob; dataUrl: string };
+type SlotSource = { file: File; displayUrl: string };
 
 const sources = new Map<number, SlotSource>();
 
@@ -25,16 +25,16 @@ export function setUploadSource(slotIndex: number, source: SlotSource) {
   sources.set(slotIndex, source);
 }
 
-/** Blob comprimido para mandar en el FormData (o undefined si se perdio). */
-export function getUploadBlob(slotIndex: number): Blob | undefined {
-  return sources.get(slotIndex)?.blob;
+/** Archivo original (máxima calidad) para subir. undefined si se perdió. */
+export function getOriginalFile(slotIndex: number): File | undefined {
+  return sources.get(slotIndex)?.file;
 }
 
 /** dataURL de la fuente COMPLETA (sin recortar) — para reabrir el cropper
-    al re-editar una foto ya cargada, asi el recorte se hace siempre sobre
+    al re-editar una foto ya cargada, así el recorte se hace siempre sobre
     la imagen entera y no sobre un recorte previo. */
-export function getSourceDataUrl(slotIndex: number): string | undefined {
-  return sources.get(slotIndex)?.dataUrl;
+export function getDisplayUrl(slotIndex: number): string | undefined {
+  return sources.get(slotIndex)?.displayUrl;
 }
 
 export function clearOriginal(slotIndex: number) {
@@ -47,7 +47,7 @@ export function clearAllOriginals() {
 
 /**
  * Convierte un dataURL a Blob — fallback cuando no tenemos la fuente
- * (ej. el usuario recargo la pagina antes de submitear).
+ * (ej. el usuario recargó la página antes de submitear).
  */
 export function dataUrlToBlob(dataUrl: string): Blob {
   const [meta, b64] = dataUrl.split(",");
